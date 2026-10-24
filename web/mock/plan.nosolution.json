@@ -28,6 +28,7 @@
   "hint": "保留当前热量上限，预算提高到 51 元即可组成主食方案",
   "error": null,
   "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
+  "coupons": null,
   "meta": {
     "storeCode": "1450713",
     "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",

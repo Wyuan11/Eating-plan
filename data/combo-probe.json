@@ -1,0 +1,73 @@
+{
+  "probedAt": "2026-10-24T16:03:51.394Z",
+  "storeCode": "1450713",
+  "combos": {
+    "9900005456": {
+      "ok": false,
+      "reason": "未匹配到商品，请重新拉取全量商品列表",
+      "raw": {
+        "success": false,
+        "code": 60001,
+        "message": "未匹配到商品，请重新拉取全量商品列表",
+        "datetime": "2026-10-25 00:03:52",
+        "traceId": "88700e8433a5bcfce74e425c212ae9f8"
+      }
+    },
+    "9900016077": {
+      "ok": true,
+      "raw": {
+        "code": "9900016077",
+        "name": "蘸酱炸鸡",
+        "rounds": [
+          {
+            "id": 1,
+            "name": "选择小食",
+            "quantity": 1,
+            "maxQuantity": 1,
+            "minQuantity": 1,
+            "choices": [
+              {
+                "code": "505416",
+                "name": "麦麦脆汁鸡-琵琶腿",
+                "quantity": 1,
+                "maxQuantity": -1,
+                "isDefault": 1,
+                "diffPrice": "+ ¥0",
+                "supportModify": false
+              }
+            ]
+          },
+          {
+            "id": 2,
+            "name": "选择蘸酱",
+            "quantity": 1,
+            "maxQuantity": 1,
+            "minQuantity": 1,
+            "choices": [
+              {
+                "code": "521797",
+                "name": "北美招牌牧场酱",
+                "quantity": 0,
+                "maxQuantity": -1,
+                "isDefault": 1,
+                "diffPrice": "+ ¥0",
+                "supportModify": false
+              },
+              {
+                "code": "521966",
+                "name": "韩式烟熏芝士风味酱",
+                "quantity": 1,
+                "maxQuantity": -1,
+                "isDefault": 0,
+                "diffPrice": "+ ¥0",
+                "supportModify": false
+              }
+            ]
+          }
+        ],
+        "supportModify": false
+      },
+      "children": []
+    }
+  }
+}

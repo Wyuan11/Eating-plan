@@ -54,6 +54,9 @@ function buildPayload(opts) {
     notes = [],
     // 调用方（如 server/api.js）已经读过菜单时直接传进来，避免重复读文件
     menu: injectedMenu = null,
+    // 优惠券：由 server/coupons.js 解析出的真实券数组（含 priceAfterFen / 有效期 / 渠道）。
+    // 为空数组或 undefined 时不参与求解，行为与加券前完全一致。
+    coupons = null,
   } = opts || {};
   const menuFile = resolveMenuFile(storeCode, opts.menuFile);
 
@@ -80,7 +83,11 @@ function buildPayload(opts) {
   }
 
   const t0 = Date.now();
-  const res = solve(menu.items, { ...constraints, storeCode, storeName: menu.store?.name, objective }, opts.options || {});
+  const res = solve(
+    menu.items,
+    { ...constraints, storeCode, storeName: menu.store?.name, objective, ...(Array.isArray(coupons) ? { coupons } : {}) },
+    opts.options || {}
+  );
   if (res.meta) {
     res.meta.elapsedMs = Date.now() - t0;
     // solver 自己会生成一个 solver-<ts> 的 traceId，和外层落盘用的不是同一个。
@@ -129,6 +136,8 @@ function buildPayload(opts) {
     hint: res.hint ?? null,
     error: res.error ?? null,
     source_note: res.source_note ?? null,
+    // 券：生效/未生效清单与免责说明。前端要能说清「省的钱里多少来自券、券为什么没用上」
+    coupons: res.coupons ?? null,
     meta: res.meta ?? null,
   };
 

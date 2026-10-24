@@ -8,13 +8,16 @@
     "bridge": "node server/bridge.js",
     "menu:fetch": "node server/fetch-menu.js --store 1450713",
     "probe:temp": "node scripts/probe-temperature.js 1450713",
+    "probe:coupons": "node scripts/probe-coupons.js 1450713",
+    "probe:combo": "node scripts/probe-combo.js",
     "menu:temp": "node scripts/enrich-temperature.js",
     "mock": "node scripts/build_mock.js",
     "check": "node scripts/demo-check.js",
-    "test": "npm run test:solver && npm run test:api && npm run test:order",
+    "test": "npm run test:solver && npm run test:api && npm run test:order && npm run test:coupons",
     "test:solver": "node test/test-solver.js data/menu-1450713.json",
     "test:api": "node test/test-api.js data/menu-1450713.json",
-    "test:order": "node test/test-order.js data/menu-1450713.json"
+    "test:order": "node test/test-order.js data/menu-1450713.json",
+    "test:coupons": "node test/test-coupons.js"
   },
   "engines": {
     "node": ">=18"

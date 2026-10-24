@@ -60,13 +60,15 @@ function summarize(items, constraints = {}) {
     else groups.set(item.code, { ...item, quantity: q });
   }
   const list = [...groups.values()].sort((a, b) => a.code.localeCompare(b.code, 'en'));
-  let priceFen = 0, originalFen = 0, calorie = 0;
+  let priceFen = 0, originalFen = 0, calorie = 0, couponFen = 0;
   const nutrition = Object.fromEntries(NUTRIENTS.map(k => [k, 0]));
   for (const i of list) {
     if (i.calorie_source !== 'official' || !numeric(i.calorie)) throw new Error('汇总拒绝未知或无效热量');
     priceFen += toFen(i.price) * i.quantity;
     originalFen += toFen(i.original_price ?? i.price) * i.quantity;
     calorie += i.calorie * i.quantity;
+    // 券后价：只有券模块【确定命中】该商品时才存在 coupon 字段，saved 是真实券后价与促销价之差
+    if (i.coupon && numeric(i.coupon.saved)) couponFen += toFen(i.coupon.saved) * i.quantity;
     for (const k of NUTRIENTS) {
       if (!numeric(i.nutrition?.[k])) throw new Error(`缺失或无效营养数据: ${k}`);
       nutrition[k] += i.nutrition[k] * i.quantity;
@@ -74,9 +76,12 @@ function summarize(items, constraints = {}) {
   }
   if (!Number.isSafeInteger(priceFen) || !Number.isSafeInteger(originalFen)) throw new Error('金额超出安全整数范围');
   for (const k of NUTRIENTS) nutrition[k] = round(nutrition[k]);
-  return { list, priceFen, originalFen, nutrition, plan: {
+  return { list, priceFen, originalFen, nutrition, couponFen, plan: {
     total_price: priceFen / 100, total_calorie: round(calorie), original_price: originalFen / 100,
     saved: (originalFen - priceFen) / 100,
+    // saved 里含券省的部分单独拆出来，前端才能说清「省的钱里有多少来自券」
+    coupon_saved: couponFen / 100,
+    price_before_coupon: (priceFen + couponFen) / 100,
     budget_usage: constraints.budget > 0 ? `${Math.round(priceFen / toFen(constraints.budget) * 100)}%` : '—',
     calorie_usage: constraints.calorie_limit != null ? `${Math.round(calorie / constraints.calorie_limit * 100)}%` : '—',
   } };
@@ -148,7 +153,14 @@ function solve(menuItems, c = {}, options = {}) {
       if (!Array.isArray(i.tags) || i.tags.some(t => typeof t !== 'string')) throw new Error(`商品标签无效: ${i.code}`);
       summarize([i]);
     }
-    const pool = applyExclusions(trusted, constraints.excluded).sort((a, b) => a.code.localeCompare(b.code, 'en'));
+    let pool = applyExclusions(trusted, constraints.excluded).sort((a, b) => a.code.localeCompare(b.code, 'en'));
+    // 优惠券：券后价替换进候选池，预算判定随之变成「券后价 ≤ 预算」。
+    // 只有能唯一确定匹配到在售单品、且券后价确实更低的券才会 applied，其余一律 skipped + 真实原因。
+    const couponInput = Array.isArray(c.coupons) ? c.coupons : [];
+    const couponReport = couponInput.length
+      ? require('./coupons').applyCoupons(pool, couponInput, { now: options.now ?? new Date(), channel: options.channel ?? '到店' })
+      : { pool, applied: [], skipped: [] };
+    pool = couponReport.pool;
     const matchesWant = (i, w) => i.name.includes(w.keyword) || (i.tags || []).includes(w.keyword);
     // 正向诉求匹配：在忌口过滤后的池里找；找不到时区分「菜单没有」与「被忌口过滤」
     const wantMatches = constraints.wants.map(w => {
@@ -200,6 +212,21 @@ function solve(menuItems, c = {}, options = {}) {
         notes.push({
           text: `不要${tempExclusions.map(k => k.replace(/的$/, '')).join('、')}`,
           reason: `已按菜单 temperature 字段过滤标注为冰饮的商品；另有 ${unknown} 件饮品未标注温度（无冰量选项≠已知冷热），未做处理`,
+        });
+      }
+    }
+    // 券的披露：生效了几张、没生效的为什么。券接口不返回券码，实付必须以核价为准，这里不做承诺。
+    if (couponInput.length) {
+      if (couponReport.applied.length) {
+        notes.push({
+          text: `已按券后价应用 ${couponReport.applied.length} 张券（${couponReport.applied.map(a => a.title).join('、')}）`,
+          reason: '券后价参与组合筛选与预算判定；券接口不返回券码，下单时无法传给核价接口，实付金额以 MCP 实时核价为准',
+        });
+      } else {
+        const reasons = couponReport.skipped.slice(0, 2).map(s => `${s.title}：${s.reason}`);
+        notes.push({
+          text: `账户里有 ${couponInput.length} 张券，本方案未使用任何一张`,
+          reason: `${reasons.join('；')}${couponReport.skipped.length > 2 ? `；另有 ${couponReport.skipped.length - 2} 张同理` : ''}。未生效的券一律按原价计算，不虚报优惠`,
         });
       }
     }
@@ -255,7 +282,7 @@ function solve(menuItems, c = {}, options = {}) {
     const normObjective = OBJECTIVE_ALIASES[objective] || objective;
     const picks = { balanced: best, cheapest, lowest_calorie: lightest, max_value: bestValue };
     const top = picks[normObjective] || best;
-    const toPlanItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity, nutrition: i.nutrition, tags: i.tags });
+    const toPlanItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity, nutrition: i.nutrition, tags: i.tags, ...(i.coupon ? { coupon: i.coupon } : {}) });
     const describe = (key, s) => {
       const dPrice = round((top.plan.total_price - s.plan.total_price));
       const dCal = top.plan.total_calorie - s.plan.total_calorie;
@@ -281,10 +308,18 @@ function solve(menuItems, c = {}, options = {}) {
     // v1.1 兼容：顶层仍是主方案；alternatives 是除主方案外的其余方案（完整 PlanItem，可下单可校验）
     const alternatives = plans.slice(1).map(p => ({ objective: p.objective, label: p.label, strategy: p.strategy, highlight: p.highlight, total_price: p.plan.total_price, total_calorie: p.plan.total_calorie, items: p.items }));
     const items = top.list.map(toPlanItem);
+    const couponBlock = couponInput.length ? {
+      total: couponInput.length,
+      applied: couponReport.applied.map(a => ({ title: a.title, code: a.appliedTo.code, name: a.appliedTo.name, before: a.appliedTo.beforeFen / 100, after: a.appliedTo.afterFen / 100, saved: a.appliedTo.savedFen / 100 })),
+      skipped: couponReport.skipped.map(s => ({ title: s.title, status: s.status, reason: s.reason })),
+      // 重要：券接口不返回 couponId/couponCode，核价与下单无法带券，实付以 MCP 为准
+      disclaimer: '券后价仅用于组合筛选与预算判定；下单核价不带券（接口未提供券码），实际支付金额以核价结果为准',
+    } : null;
     const wantNote = wantMatches.length ? `已严格按数量包含：${wantMatches.map(w => `${w.keyword}×${w.qty}`).join('、')}。` : '';
+    const couponNote = couponBlock && couponBlock.applied.length ? `已应用 ${couponBlock.applied.length} 张券，券后省 ¥${round(couponBlock.applied.reduce((n, a) => n + a.saved, 0)).toFixed(2)}。` : '';
     return { success: true, message: '推荐完成', objective: normObjective, constraints, plan: top.plan, items, nutrition: top.nutrition,
-      plans, alternatives, notes,
-      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买；饮品与甜品每人最多一件。${wantNote}价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
+      plans, alternatives, notes, ...(couponBlock ? { coupons: couponBlock } : {}),
+      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买；饮品与甜品每人最多一件。${wantNote}${couponNote}价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
       source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta };
   } catch (e) {
     return error('INTERNAL_ERROR', e.limit ? e.message : `数据或计算异常: ${e.message}`);

@@ -1,0 +1,61 @@
+{
+  "probedAt": "2026-10-24T16:22:17.694Z",
+  "storeCode": "1450713",
+  "tools": {
+    "query-my-coupons": {
+      "schema": null,
+      "args": null,
+      "ok": null,
+      "error": "tools/list 中不存在该工具",
+      "raw": null,
+      "shape": null,
+      "listPath": null,
+      "count": 0,
+      "sample": null
+    },
+    "available-coupons": {
+      "schema": null,
+      "args": null,
+      "ok": null,
+      "error": "tools/list 中不存在该工具",
+      "raw": null,
+      "shape": null,
+      "listPath": null,
+      "count": 0,
+      "sample": null
+    },
+    "query-store-coupons": {
+      "schema": null,
+      "args": null,
+      "ok": null,
+      "error": "tools/list 中不存在该工具",
+      "raw": null,
+      "shape": null,
+      "listPath": null,
+      "count": 0,
+      "sample": null
+    },
+    "query-promotions": {
+      "schema": null,
+      "args": null,
+      "ok": null,
+      "error": "tools/list 中不存在该工具",
+      "raw": null,
+      "shape": null,
+      "listPath": null,
+      "count": 0,
+      "sample": null
+    },
+    "auto-bind-coupons": {
+      "schema": null,
+      "args": null,
+      "ok": null,
+      "error": "tools/list 中不存在该工具",
+      "raw": null,
+      "shape": null,
+      "listPath": null,
+      "count": 0,
+      "sample": null
+    }
+  }
+}

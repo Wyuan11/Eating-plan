@@ -98,15 +98,37 @@ export interface PlanItem {
   quantity: number;
   nutrition: Nutrition | null;
   tags: string[];
+  /** v1.4：该商品命中了券，price 已是券后价 */
+  coupon?: {
+    title: string; // 券名
+    before_price: number; // 用券前的门店促销价
+    after_price: number; // 券后价（= 上面 price）
+    saved: number; // 单件省了多少
+  } | null;
 }
 
 export interface PlanSummary {
-  total_price: number; // 实付合计
+  total_price: number; // 券后实付合计（无券时即促销价合计）
   total_calorie: number; // 已计入的官方热量合计（unknown 项不计入）
   original_price: number; // 原价合计
-  saved: number; // 省了多少
+  saved: number; // 省了多少（含券省）
+  /** v1.4：saved 里来自券的部分；无券为 0 */
+  coupon_saved?: number;
+  /** v1.4：未用券时的总价 = total_price + coupon_saved */
+  price_before_coupon?: number;
   budget_usage: string; // "95%"
   calorie_usage: string; // "80%"；无热量约束时为 "—"
+}
+
+/**
+ * v1.4 券报告：生效了哪几张、没生效的为什么。
+ * 注意 disclaimer —— 券接口不返回券码，核价与下单不带券，实付以核价结果为准，前端不能说成「实付立减」。
+ */
+export interface CouponReport {
+  total: number;
+  applied: Array<{ title: string; code: string; name: string; before: number; after: number; saved: number }>;
+  skipped: Array<{ title: string; status: 'no_match' | 'ambiguous' | 'not_cheaper' | 'unsupported' | 'not_now'; reason: string }>;
+  disclaimer: string;
 }
 
 /**
@@ -173,6 +195,8 @@ export interface PlanEnvelope {
   plans: PlanEntry[];
   alternatives: Alternative[]; // = plans.slice(1)，兼容旧代码
   suggestion: string | null;
+  /** v1.4：券报告。仅当请求带 coupons / useCoupons 时出现，否则为 null */
+  coupons?: CouponReport | null;
 
   // nosolution 态
   reason: string | null; // 哪条约束导致无解

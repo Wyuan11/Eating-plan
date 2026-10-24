@@ -32,7 +32,9 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 // solve 由 buildPayload 内部调用，这里只需要它导出的目标枚举做入参校验
-const { OBJECTIVES, OBJECTIVE_ALIASES } = require('./solver');
+const { OBJECTIVES, OBJECTIVE_ALIASES, trustedPool } = require('./solver');
+// 券：只做「读券 + 与菜单匹配」，生效判定全在 coupons.js，这里不自己判断省钱
+const { applyCoupons, sanitizeCoupons, fetchMyCoupons } = require('./coupons');
 // 复用 Skill 落盘那一份 payload 构造逻辑：/api/plan 的响应结构与
 // data/skill-outbox/plan-*.json 逐字段一致，前端只写一套解析代码。
 const { buildPayload } = require('./emit-plan');
@@ -207,6 +209,24 @@ async function handlePlan(req, res) {
   const traceId = `plan-${crypto.randomUUID()}`;
   const meta = baseMeta(storeCode, { traceId });
 
+  // 优惠券：两种用法
+  //   1) body.coupons 显式传入（前端已拿到 /api/coupons 的结果，避免重复拉 MCP）
+  //   2) body.useCoupons === true 且未显式传 → 后端拉一次真实券；拉不到只是不参与求解，绝不让请求失败
+  let coupons = null;
+  if (Object.prototype.hasOwnProperty.call(body || {}, 'coupons')) {
+    const s = sanitizeCoupons(body.coupons);
+    if (s.error) return send(res, 400, fail('BAD_REQUEST', s.error, false, meta));
+    coupons = s.value;
+  } else if (body?.useCoupons === true) {
+    try {
+      const r = await fetchMyCoupons();
+      if (r.ok) coupons = r.coupons;
+      else meta.couponWarning = r.error; // 拉不到券：照常求解，如实标注
+    } catch (e) {
+      meta.couponWarning = String(e?.message || e);
+    }
+  }
+
   const loaded = loadMenu(storeCode);
   if (loaded.error) return send(res, loaded.code === 'NOT_FOUND' ? 404 : 503, fail(loaded.code, loaded.error, loaded.retryable, meta));
 
@@ -221,6 +241,7 @@ async function handlePlan(req, res) {
       intent: typeof body?.intent === 'string' ? body.intent : '',
       objective,
       constraints,
+      ...(Array.isArray(coupons) ? { coupons } : {}),
       menu: loaded.menu, // 已读过就传进来，避免每次请求重复读文件
       options: { maxNodes: MAX_NODES }, // 搜索节点上限保护，防止病态输入把服务拖死
     });
@@ -246,6 +267,33 @@ function handleMenu(req, res, url) {
     count: Array.isArray(menu.items) ? menu.items.length : 0,
     items: menu.items,
     meta: { ...meta, menuFile: loaded.file, cacheHit: loaded.cacheHit },
+  });
+}
+
+/**
+ * GET /api/coupons?storeCode=xxx
+ * 读真实券并给出「能不能用在当前菜单」的判定。只读，不领券、不消耗券。
+ * MCP 不可用 → 503 MCP_UNAVAILABLE（前端退回「不带券求解」，不假装没券）。
+ */
+async function handleCoupons(req, res, url) {
+  const storeCode = url.searchParams.get('storeCode') || DEFAULT_STORE;
+  const meta = baseMeta(storeCode);
+  const r = await fetchMyCoupons();
+  if (!r.ok) {
+    const status = r.code === 'MCP_UNAVAILABLE' ? 503 : 502;
+    return send(res, status, fail(r.code, r.error, r.code === 'MCP_UNAVAILABLE', meta));
+  }
+  const loaded = loadMenu(storeCode);
+  const pool = loaded.error ? [] : trustedPool(loaded.menu.items);
+  const report = applyCoupons(pool, r.coupons, { now: new Date(), channel: '到店' });
+  send(res, 200, {
+    success: true,
+    store: { code: storeCode, name: loaded.menu?.store?.name || null },
+    total: r.coupons.length,
+    applied: report.applied.map((a) => ({ title: a.title, code: a.appliedTo.code, name: a.appliedTo.name, before: a.appliedTo.beforeFen / 100, after: a.appliedTo.afterFen / 100, saved: a.appliedTo.savedFen / 100 })),
+    skipped: report.skipped.map((s) => ({ title: s.title, status: s.status, reason: s.reason })),
+    disclaimer: '券接口不返回券码（couponId/couponCode），下单核价无法带券；券后价只参与组合筛选与预算判定，实付以核价为准',
+    meta: { ...meta, menuLoaded: !loaded.error, poolSize: pool.length },
   });
 }
 
@@ -420,6 +468,9 @@ function requestHandler(req, res) {
   if (route === '/api/health' && req.method === 'GET') { log(200); return handleHealth(req, res); }
   if (route === '/api/menu' && req.method === 'GET') { log(200); return handleMenu(req, res, url); }
   if (route === '/api/stores' && req.method === 'GET') { log(200); return handleStores(req, res); }
+  if (route === '/api/coupons' && req.method === 'GET') {
+    return handleCoupons(req, res, url).then(() => log(res.statusCode), (e) => { console.error(e); log(500); return send(res, 500, fail('INTERNAL_ERROR', String(e?.message || e), false)); });
+  }
   if (route === '/api/plan' && req.method === 'POST') {
     return handlePlan(req, res).then(() => log(res.statusCode), () => log(500));
   }

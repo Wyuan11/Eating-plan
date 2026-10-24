@@ -110,7 +110,8 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
 | 2 | GET  | `/api/menu?storeCode=`       | 门店菜单         | `menu.json`          | P0  |
 | 3 | POST | `/api/plan`                  | **核心：多约束求解** | `plan.success.json`  | P0  |
 | 4 | POST | `/api/order`                 | 创建订单拿支付链接    | `order.success.json` | P1  |
-| 5 | GET  | `/api/health`                | 健康检查         | —                    | P2  |
+| 5 | GET  | `/api/coupons?storeCode=`    | 我的券 + 能否用于本店  | —                    | P2  |
+| 6 | GET  | `/api/health`                | 健康检查         | —                    | P2  |
 
 **P0 = 第一天必须跑通；P1 = 第二天；P2 = 有空再说。**
 
@@ -172,9 +173,20 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
     "calorie_limit": 1200,  // 可选，大卡；不填则不约束热量
     "people": 2,            // 可选，默认 1
     "excluded": ["辣"]      // 可选，忌口关键词
-  }
+  },
+  // 券（可选，v1.4）。两种写法二选一：
+  //   a) coupons: 显式传入（通常来自 GET /api/coupons，避免重复拉 MCP）
+  //   b) useCoupons: true —— 后端自己拉一次真实券；拉不到只是不参与求解，请求照常成功
+  "coupons": [
+    { "title": "7元玉米杯", "priceAfterFen": 700, "channels": ["到店专用"],
+      "validFrom": "2026-10-01T10:30", "validTo": "2026-11-30T23:59",
+      "weekdays": [1, 2, 3, 4, 5], "dailyWindow": [630, 1439] }
+  ]
 }
 ```
+
+> `coupons[]` 走白名单校验（title/priceAfterFen/channels/validFrom/validTo/weekdays/dailyWindow），
+> 非法入参返回 `400 BAD_REQUEST`。`priceAfterFen` 单位**分**，1~100000。
 
 ### 成功响应 `200`
 
@@ -196,7 +208,9 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
     "total_price": 56.9,
     "total_calorie": 962,
     "original_price": 70,
-    "saved": 13.1,
+    "saved": 13.1,              // 含券省；券省单独拆在 coupon_saved
+    "coupon_saved": 6,          // v1.4：其中来自券的部分，无券时为 0
+    "price_before_coupon": 62.9, // v1.4：未用券时的总价（= total_price + coupon_saved）
     "budget_usage": "95%",   // 字符串，含 % 号，直接渲染
     "calorie_usage": "80%"   // 无热量约束时为 "—"
   },
@@ -471,3 +485,66 @@ npm run menu:temp   # 读取 temperature-probe.json，给菜单快照标注 temp
 - 标注 `temperature:'cold'`：美汁源黄金橙橙、雪碧、燕麦奶铁、阳光柠檬红茶、怡泉+C
 - 其余饮品**不标注**：无冰量选项 ≠ 已知冷热（可能是热饮也可能常温），求解器对未标注者不做温度过滤
 - 「不要冰饮」现在可真实执行；`notes` 会说明「已按 temperature 过滤 + N 件饮品未标注温度」
+
+---
+
+## 十、v1.4 增量（2026-10-25）：优惠券参与预算
+
+### 1. 三层优惠，本版吃到第二层
+
+| 层 | 来源 | 是否计入 | 说明 |
+| - | ---- | ---- | ---- |
+| ① 门店促销价 | 菜单 `currentPrice` vs `originalPrice` | ✅ 一直计入 | `saved = 原价 - 现价` |
+| ② 我的券（券后一口价） | `query-my-coupons` | ✅ v1.4 起 | 命中商品按券后价进预算 |
+| ③ 门店券/可领券 | `query-store-coupons` / `available-coupons` | ❌ | 该店 `data:[]`；可领券接口无结构化字段，只披露不进求解 |
+
+### 2. 生效规则（宁可不用，绝不虚报）
+
+券只有在**全部满足**时才 `applied`：
+
+1. 当前时间在有效期内，且星期 / 每日时段匹配（真实字段，不是猜的）
+2. 渠道含「到店」（演示场景 `beType=1`）
+3. 券名能**唯一**匹配到求解可信池里的某件在售单品（命中 0 件 → `no_match`；命中多件 → `ambiguous`）
+4. 券后价 **严格低于**该商品当前促销价（否则 `not_cheaper`，用券更贵就不算省钱）
+5. 非组合券（`任选N` / `N件套` / 套餐 → `unsupported`，本版不支持自动搭配）
+
+未生效的券一律进 `coupons.skipped[]`，带**真实原因**；同时在 `request.notes[]` 里给一条汇总披露。
+
+### 3. 响应新增字段
+
+```jsonc
+{
+  "plan": {
+    "total_price": 38,            // 券后价（预算判定用它）
+    "price_before_coupon": 44,    // 未用券时的总价
+    "coupon_saved": 6,            // 其中来自券的部分
+    "saved": 6                    // 原价 - 券后价（含券省）
+  },
+  "items": [ { "code": "4437", "name": "玉米杯", "price": 7, "coupon": { "title": "7元玉米杯", "before_price": 13, "after_price": 7, "saved": 6 } } ],
+  "coupons": {
+    "total": 5,
+    "applied": [ { "title": "7元玉米杯", "code": "4437", "name": "玉米杯", "before": 13, "after": 7, "saved": 6 } ],
+    "skipped": [ { "title": "11.9元麦辣鸡腿堡", "status": "no_match", "reason": "本店菜单里没有「麦辣鸡腿堡」，券无法用于当前门店" } ],
+    "disclaimer": "券后价仅用于组合筛选与预算判定；下单核价不带券（接口未提供券码），实际支付金额以核价结果为准"
+  }
+}
+```
+
+### 4. ⚠️ 硬限制：核价与下单不带券
+
+`query-my-coupons` **不返回 `couponId` / `couponCode`**（只有 `query-store-coupons` 返回，而本店为空列表），
+因此 `calculate-price` 无法带券核价。含义：
+
+- 券后价只影响「选什么组合、预算判定」，**不承诺实付金额**
+- `/api/order` 仍按促销价快照核价，实付以 MCP 返回为准
+- 前端展示券省时**必须**带上 `coupons.disclaimer`，不能说成"实付立减"
+
+### 5. 只读探测与测试
+
+```bash
+npm run probe:coupons   # 扫券接口真实字段结构 → data/coupon-probe.json
+npm run test:coupons    # 解析/时效/匹配/券后价，18 项断言（用真实券数据做输入）
+```
+
+实测结论（2026-10-25，账号 5 张券）：2 张咖啡券券后价高于门店促销价、2 张汉堡/炸鸡券商品不在本店菜单、
+2 张为组合券且券生效日未到 —— 因此当前时刻 `applied` 为 0，**这是真实结果，不是 bug**。

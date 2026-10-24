@@ -24,6 +24,8 @@
     "total_calorie": 962,
     "original_price": 70,
     "saved": 13.1,
+    "coupon_saved": 0,
+    "price_before_coupon": 56.9,
     "budget_usage": "95%",
     "calorie_usage": "80%"
   },
@@ -125,6 +127,8 @@
         "total_calorie": 962,
         "original_price": 70,
         "saved": 13.1,
+        "coupon_saved": 0,
+        "price_before_coupon": 56.9,
         "budget_usage": "95%",
         "calorie_usage": "80%"
       },
@@ -226,6 +230,8 @@
         "total_calorie": 738,
         "original_price": 34,
         "saved": 0,
+        "coupon_saved": 0,
+        "price_before_coupon": 34,
         "budget_usage": "57%",
         "calorie_usage": "62%"
       },
@@ -269,6 +275,8 @@
         "total_calorie": 964,
         "original_price": 60,
         "saved": 0,
+        "coupon_saved": 0,
+        "price_before_coupon": 60,
         "budget_usage": "100%",
         "calorie_usage": "80%"
       },
@@ -488,11 +496,12 @@
   "hint": null,
   "error": null,
   "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
+  "coupons": null,
   "meta": {
     "storeCode": "1450713",
     "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-success",
-    "elapsedMs": 256
+    "elapsedMs": 263
   }
 }
