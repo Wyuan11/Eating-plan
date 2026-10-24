@@ -11,6 +11,15 @@ build/
 web/dist/
 web/build/
 
+# ---------- 前端工具链缓存（队友接入 Vite/TS 后会生成）----------
+.vite/
+.turbo/
+coverage/
+*.tsbuildinfo
+.eslintcache
+.stylelintcache
+.cache/
+
 # ---------- 日志 ----------
 *.log
 
@@ -27,6 +36,10 @@ data/skill-outbox/
 # 调试用的 MCP 原始响应（可能含完整菜单与图片地址）
 data/_raw-*.txt
 data/_toon-dbg.txt
+
+# ---------- 离线传递产物（git bundle 单文件流转，不入库）----------
+bundles/
+*.bundle
 
 # ---------- 编辑器与系统 ----------
 .DS_Store
