@@ -8,10 +8,13 @@ mkdir -p bundles
 TS="$(date +%Y%m%d-%H%M)"
 OUT="bundles/mcd-repo-${TS}.bundle"
 
-# 注意：用 --branches 而不是 --all。
-# --all 会把 refs/remotes/* 一起打进去，但 git clone 只认 refs/heads/*，
-# 结果队友 clone 完只能看到 main，看不到 feat/xxx 分支。
-git bundle create "$OUT" --branches
+# 三个坑，逐个避开：
+# 1) 不能用 --all：会把 refs/remotes/* 一起打进去，而 git clone 只认 refs/heads/*，
+#    队友 clone 后看不到 feat/xxx 协作分支。
+# 2) 必须显式带上 HEAD：否则 bundle 里没有默认分支指针，
+#    队友 clone 完工作区是空的（remote HEAD refers to nonexistent ref）。
+# 3) 打完立刻 list-heads 自检，确认分支齐全再发出去。
+git bundle create "$OUT" --branches HEAD
 SIZE="$(du -h "$OUT" | cut -f1)"
 echo "[OK] 已生成 $OUT ($SIZE)"
 echo "=== 包内分支（请确认 feat/* 都在）==="
