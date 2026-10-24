@@ -32,10 +32,13 @@ const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
 // solve 由 buildPayload 内部调用，这里只需要它导出的目标枚举做入参校验
-const { OBJECTIVES } = require('./solver');
+const { OBJECTIVES, OBJECTIVE_ALIASES } = require('./solver');
 // 复用 Skill 落盘那一份 payload 构造逻辑：/api/plan 的响应结构与
 // data/skill-outbox/plan-*.json 逐字段一致，前端只写一套解析代码。
 const { buildPayload } = require('./emit-plan');
+// Skill 触发（WorkBuddy 本机 Gateway）：/api/skill-plan 用，网关不可用则前端回退 /api/plan
+const { triggerAsync } = require('./trigger-skill');
+const { readPlan } = require('./outbox');
 
 const PORT = Number(process.env.PORT || 3000);
 const DEFAULT_STORE = process.env.DEFAULT_STORE || '1450713';
@@ -152,19 +155,41 @@ function pickConstraints(body) {
     calorie_limit: box.calorie_limit ?? box.calorieLimit ?? null,
     people: box.people ?? 1,
     excluded: box.excluded ?? [],
+    wants: box.wants ?? [],
   };
+}
+
+/** 正向诉求归一：字符串 → {keyword, qty:1}；{keyword, qty} 原样 */
+function normalizeWants(wants) {
+  if (!Array.isArray(wants)) return { error: 'constraints.wants 必须为数组' };
+  const out = [];
+  for (const w of wants) {
+    if (typeof w === 'string') {
+      if (!w.trim()) return { error: 'constraints.wants 不能有空字符串' };
+      out.push({ keyword: w.trim(), qty: 1 });
+      continue;
+    }
+    const kw = typeof w?.keyword === 'string' ? w.keyword.trim() : '';
+    const qty = Math.floor(Number(w?.qty ?? 1));
+    if (!kw) return { error: 'constraints.wants[].keyword 必须为非空字符串' };
+    if (!Number.isInteger(qty) || qty < 1 || qty > 12) return { error: `constraints.wants[].qty 必须为 1~12 的整数：${kw}` };
+    out.push({ keyword: kw, qty });
+  }
+  return { value: out };
 }
 
 function validate(body) {
   const storeCode = typeof body?.storeCode === 'string' && body.storeCode.trim() ? body.storeCode.trim() : DEFAULT_STORE;
   const c = pickConstraints(body);
-  const objective = body?.objective ?? c.objective ?? 'balanced';
+  const objective = OBJECTIVE_ALIASES[body?.objective ?? c.objective] || body?.objective || c.objective || 'balanced';
   if (!OBJECTIVES.includes(objective)) return { error: `objective 必须是 ${OBJECTIVES.join(' / ')}` };
   if (typeof c.budget !== 'number' || !Number.isFinite(c.budget) || c.budget <= 0) return { error: 'constraints.budget 必须为大于 0 的数字' };
   if (!Number.isInteger(c.people) || c.people < 1 || c.people > 6) return { error: 'constraints.people 必须为 1～6 的整数' };
   if (c.calorie_limit !== null && (typeof c.calorie_limit !== 'number' || !Number.isFinite(c.calorie_limit) || c.calorie_limit <= 0)) return { error: 'constraints.calorie_limit 必须为正数或 null' };
   if (!Array.isArray(c.excluded) || c.excluded.some((k) => typeof k !== 'string')) return { error: 'constraints.excluded 必须为字符串数组' };
-  return { value: { storeCode, objective, constraints: { budget: c.budget, calorie_limit: c.calorie_limit, people: c.people, excluded: c.excluded } } };
+  const w = normalizeWants(c.wants);
+  if (w.error) return { error: w.error };
+  return { value: { storeCode, objective, constraints: { budget: c.budget, calorie_limit: c.calorie_limit, people: c.people, excluded: c.excluded, wants: w.value } } };
 }
 
 // ---------------------------------------------------------------- 路由
@@ -266,6 +291,41 @@ function handleOrder(req, res) {
   return send(res, 501, fail('NOT_FOUND', '/api/order 尚未实现：Day2 先 calculate-price 重新核价，用户确认后再 create-order', false, baseMeta(DEFAULT_STORE)));
 }
 
+// ------------------------------------------------------- Skill 链路（自然语言 → Skill → solver）
+
+/**
+ * GET /api/plan/:traceId —— 读 Skill 落盘结果。
+ * 未生成时 404 + status:"pending"（与 bridge.js 同语义），前端据此继续轮询。
+ */
+function handlePlanById(req, res, traceId) {
+  try {
+    const plan = readPlan(traceId);
+    return send(res, 200, plan);
+  } catch {
+    return send(res, 404, { ok: false, traceId, status: 'pending', message: '方案尚未生成' });
+  }
+}
+
+/**
+ * POST /api/skill-plan { intent } —— 自然语言交给 Skill（WorkBuddy 本机 Gateway）。
+ * 受理后立即 202 + traceId；Skill 调 emit-plan 落盘，前端轮询 GET /api/plan/:traceId。
+ * 网关不可用 → 503 GATEWAY_UNAVAILABLE，前端回退 POST /api/plan（确定性求解）。
+ */
+async function handleSkillPlan(req, res) {
+  const body = await readJsonBody(req);
+  if (body.error) return send(res, 400, fail('BAD_REQUEST', body.error, false));
+  const intent = typeof body?.intent === 'string' ? body.intent.trim() : '';
+  if (!intent) return send(res, 400, fail('BAD_REQUEST', 'intent 必须为非空字符串（用户点单原文）', false));
+  const traceId = `skill-${crypto.randomUUID()}`;
+  const meta = baseMeta(DEFAULT_STORE, { traceId });
+  try {
+    const info = await triggerAsync({ text: intent, traceId });
+    return send(res, 202, { ok: true, status: 'pending', traceId, poll: `/api/plan/${traceId}`, runId: info.runId, meta: { ...meta, gateway: info.gateway, gatewayFrom: info.gatewayFrom } });
+  } catch (e) {
+    return send(res, 503, fail('GATEWAY_UNAVAILABLE', `Skill 网关不可用：${e.message}`, true, meta));
+  }
+}
+
 // ---------------------------------------------------------------- 服务器
 
 function requestHandler(req, res) {
@@ -289,6 +349,13 @@ function requestHandler(req, res) {
   if (route === '/api/stores' && req.method === 'GET') { log(200); return handleStores(req, res); }
   if (route === '/api/plan' && req.method === 'POST') {
     return handlePlan(req, res).then(() => log(res.statusCode), () => log(500));
+  }
+  if (route.startsWith('/api/plan/') && req.method === 'GET') {
+    log(200);
+    return handlePlanById(req, res, route.slice('/api/plan/'.length));
+  }
+  if (route === '/api/skill-plan' && req.method === 'POST') {
+    return handleSkillPlan(req, res).then(() => log(res.statusCode), (e) => { console.error(e); log(500); return send(res, 500, fail('INTERNAL_ERROR', String(e?.message || e), false)); });
   }
   if (route === '/api/order') { log(501); return handleOrder(req, res); }
 

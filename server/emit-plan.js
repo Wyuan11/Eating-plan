@@ -159,6 +159,11 @@ function main() {
   };
   const calorieRaw = arg('calorie', null);
   const excluded = arg('exclude', '') ? arg('exclude').split(/[,，\s]+/).filter(Boolean) : [];
+  // --want "冰淇淋x1,麦香鸡x2"：正向诉求带精确数量，数量是硬约束
+  const wants = arg('want', '') ? arg('want').split(/[,，]+/).filter(Boolean).map(s => {
+    const m = s.match(/^(.+?)(?:[x×*]\s*(\d+))?$/);
+    return { keyword: m[1].trim(), qty: Number(m[2] || 1) };
+  }) : [];
 
   const { payload } = emit({
     traceId: arg('traceId', null) || `t${Date.now()}`,
@@ -172,6 +177,7 @@ function main() {
       calorie_limit: calorieRaw == null || calorieRaw === '' ? null : Number(calorieRaw),
       people: Number(arg('people', 1)),
       excluded,
+      wants,
     },
   });
 

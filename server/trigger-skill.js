@@ -238,6 +238,20 @@ async function main() {
   printPlan(fallback);
 }
 
+/**
+ * 供 api.js 调用的编程式入口：触发 Skill 后立即返回（202 语义），
+ * 落盘在后台轮询等待。调用方用 GET /api/plan/:traceId 轮询 outbox。
+ */
+async function triggerAsync({ text, traceId, timeoutSec = 180 }) {
+  const fullText = `${text}\n【系统约定】traceId=${traceId}，请用麦门智选助手处理，方案以该 traceId 落盘，无需追问。`;
+  const run = await postRun(fullText);
+  const deadline = Date.now() + timeoutSec * 1000;
+  pollOutbox(traceId, deadline).then((plan) => {
+    if (!plan) console.warn(`[triggerAsync] ${timeoutSec}s 内未等到 plan-${traceId}.json（Skill 未执行？）`);
+  });
+  return { runId: run.runId, traceId, gateway: GATEWAY, gatewayFrom: GATEWAY_INFO.from };
+}
+
 // 加 require.main 守卫是为了能被测试脚本 require 而不触发一次真实请求
 if (require.main === module) {
   main().catch((e) => {
@@ -246,4 +260,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { resolveGateway, structuredConstraints, fallbackLocal };
+module.exports = { resolveGateway, structuredConstraints, fallbackLocal, triggerAsync };

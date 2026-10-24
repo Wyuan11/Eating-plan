@@ -1,6 +1,7 @@
 <script setup>
 import { onMounted, ref } from 'vue'
 import { getStores, submitPlan } from './lib/api.js'
+import { normalizePlan } from './lib/normalize.js'
 import ConstraintForm from './components/ConstraintForm.vue'
 import ResultView from './components/ResultView.vue'
 import LoadSteps from './components/LoadSteps.vue'
@@ -28,15 +29,60 @@ async function onSubmit(payload) {
   mock.value = false
   fallbackReason.value = null
   try {
+    // 链路正主：自然语言原文 → Skill（语义理解，含正向诉求/忌口/数量）→ solver。
+    // 网关不可用或超时才降级：前端解析的约束 → /api/plan 确定性直算。
+    if (payload.query) {
+      const skillPlan = await trySkillPlan(payload)
+      if (skillPlan) {
+        result.value = skillPlan
+        return
+      }
+      fallbackReason.value = 'Skill 网关不可用/超时，已由确定性求解器直算（跳过语义层，方案仍然有效）'
+    }
     const r = await submitPlan(payload)
     result.value = r.data
     mock.value = r.mock
-    fallbackReason.value = r.fallbackReason || null
+    if (!r.mock) fallbackReason.value = null
+    else if (!fallbackReason.value) fallbackReason.value = r.fallbackReason || null
   } catch (e) {
     error.value = '求解失败：' + (e?.message || '未知错误')
   } finally {
     loading.value = false
   }
+}
+
+/** Skill 链路：POST /api/skill-plan 受理（202）→ 轮询 GET /api/plan/:traceId。
+ *  任何一步不通都返回 null，由调用方降级，绝不让用户干等。 */
+async function trySkillPlan(payload) {
+  let traceId = null
+  try {
+    const res = await fetch('/api/skill-plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ intent: payload.query, storeCode: payload.storeCode, constraints: payload.constraints }),
+      signal: AbortSignal.timeout(12000),
+    })
+    if (res.status !== 202) return null
+    traceId = (await res.json())?.traceId
+    if (!traceId) return null
+  } catch {
+    return null
+  }
+  const deadline = Date.now() + 90000 // Skill 执行可能要几十秒，别太短
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 1500))
+    try {
+      const r = await fetch(`/api/plan/${traceId}`)
+      if (r.status === 200) {
+        const data = await r.json()
+        if (data?.status && data.status !== 'pending') return normalizePlan(data)
+      }
+      // 404 = pending，继续等
+    } catch {
+      /* 网络抖动，继续轮询 */
+    }
+  }
+  return null
 }
 </script>
 

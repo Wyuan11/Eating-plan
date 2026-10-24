@@ -56,5 +56,34 @@ export function parseQuery(query = '') {
     }
   }
 
+  // 正向诉求：想吃X / 来份X / N个X —— 数量是硬约束，「一个冰淇淋」就必须是 1 个。
+  // 已知不足：这是演示保底解析；真正的语义理解在 Skill（见 SKILL.md 正向诉求提取）。
+  const CN = { 一: 1, 两: 2, 二: 2, 三: 3, 四: 4, 五: 5, 六: 6 };
+  const wants = new Map();
+  const addWant = (kw, qty) => {
+    kw = kw.trim();
+    if (!kw || kw.length > 6) return;
+    wants.set(kw, (wants.get(kw) || 0) + qty);
+  };
+  // 动词式：想吃/想要/来/加/要/点 +（数量）+（量词）+ 品名。动词前不能是「不/别」，避免吃掉「不要饮料」。
+  const verbRe = /(?<![不要别])(想吃|想要|来份|来个|来一|加份|加个|要份|要个|点份|点个)([一-龥0-9]{1,8})/g;
+  for (const m of s.matchAll(verbRe)) {
+    const rest = m[2];
+    const qm = rest.match(/^([一二两三四五\d]+)?\s*(?:个|份|杯|支|盒)?\s*([一-龥]{2,6})$/);
+    if (qm && qm[2]) addWant(qm[2], qm[1] ? (CN[qm[1]] ?? Number(qm[1]) ?? 1) : 1);
+  }
+  // 裸数量式：N个X（如「一个冰淇淋」）。跳过指人的词，避免把「两个女生」当成想吃的菜。
+  const HUMAN = new Set(['人', '女生', '男生', '大人', '小孩', '儿童', '朋友', '同事', '同学']);
+  for (const m of s.matchAll(/([一二两三四五\d])\s*[个杯份支盒]\s*([一-龥]{2,6})/g)) {
+    const kw = m[2];
+    if (HUMAN.has(kw)) continue;
+    if ([...wants.keys()].some((k) => k.includes(kw) || kw.includes(k))) continue;
+    addWant(kw, CN[m[1]] ?? Number(m[1]) ?? 1);
+  }
+  if (wants.size) {
+    out.wants = [...wants].map(([keyword, qty]) => ({ keyword, qty }));
+    out.parsed = true;
+  }
+
   return out;
 }
