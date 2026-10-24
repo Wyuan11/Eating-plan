@@ -289,6 +289,39 @@ switch (res.status) {
 
 **注意**：`payH5Url` 只做**展示**（渲染二维码 + 可点击链接），**不要**在前端自动跳转或自动支付。演示到此为止，不产生真实扣款。
 
+#### 4.1 已实现（2026-10-24，server/order.js）
+
+链路：**本地快照算期望价 → `calculate-price` 重新核价（变价即 409 拦截）→ `create-order` → 返回 `payH5Url`**。
+
+请求额外支持：`beType`（默认 1 到店取餐）、`mock:true`（演示逃生门，不调 MCP）。
+
+响应额外字段（都在 `order` 之外，不影响上面的老字段）：
+
+```jsonc
+{
+  "order": { "orderId": "...", "total_price": 22, "payH5Url": "...", "expireAt": null,
+             "storeName": "...", "orderStatus": "待支付" },
+  "price_check": { "expected_price": 22, "actual_price": 22, "matched": true, "discount": 0 },
+  "meta": { "source": "mcp" }   // mock 时为 "mock"，前端必须区分展示
+}
+```
+
+- `expireAt` 为 `null` 是**故意的**：MCP 不返回支付截止时间，宁可留空也不编造倒计时。
+- 金额单位：MCP 返回「分」，后端统一转成「元」后再给前端。
+
+错误码（HTTP 状态码与业务 code 一致，前端按 code 分支）：
+
+| HTTP | code | 含义 | 前端该做什么 |
+|---|---|---|---|
+| 400 | `BAD_REQUEST` | items 为空 / 数量非法 / beType 不合法 | 提示修正 |
+| 409 | `PRICE_CHANGED` | 快照价与实时价不一致，**未下单** | 展示两个价格，让用户确认后重试 |
+| 502 | `MCP_TOOL_ERROR` / `NO_TAKEWAY` | MCP 业务失败 / 算价未返回取餐方式 | 提示稍后重试 |
+| 503 | `MCP_UNAVAILABLE` | 未配 Token 或 MCP 不可达 | 提示可用 `mock:true` 演示 |
+
+**红线**：不调用任何支付/扣款工具；`mock:true` 是**唯一**能拿到假订单的入口，且响应自曝 `source:"mock"`，绝不静默伪造。
+
+回归：`npm run test:order`（无 Token 时自动 SKIP 真实链路；`ORDER_LIVE=1` 才会真实创建**未支付**订单）。
+
 ---
 
 ## 5. 页面状态机（前端必须实现这 5 个态）

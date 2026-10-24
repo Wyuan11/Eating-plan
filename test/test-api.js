@@ -92,8 +92,24 @@ const post = (base, route, payload) => call(base, route, {
   const unknown = await call(base, '/api/nope');
   assert.equal(unknown.status, 404);
 
-  const order = await post(base, '/api/order', { storeCode: '1450713', items: [] });
-  assert.equal(order.status, 501);
+  // /api/order 已实现：空 items 必须 400（未实现时曾返回 501）
+  const emptyOrder = await post(base, '/api/order', { storeCode: '1450713', items: [] });
+  assert.equal(emptyOrder.status, 400);
+  assert.equal(emptyOrder.body.error.code, 'BAD_REQUEST');
+
+  // 显式 mock 逃生门：未调用 MCP，响应必须自己声明 source:mock，防止演示时把假订单当真
+  const mockOrder = await post(base, '/api/order', { storeCode: '1450713', mock: true, items: [{ code: '1406', quantity: 1 }] });
+  assert.equal(mockOrder.status, 200);
+  assert.equal(mockOrder.body.success, true);
+  assert.equal(mockOrder.body.meta.source, 'mock');
+  assert.ok(mockOrder.body.order.payH5Url && mockOrder.body.order.orderId);
+
+  // 未配 Token 时真实下单必须如实报不可用，绝不伪造订单
+  if (!process.env.MCD_MCP_TOKEN) {
+    const realOrder = await post(base, '/api/order', { storeCode: '1450713', items: [{ code: '1406', quantity: 1 }] });
+    assert.equal(realOrder.status, 503);
+    assert.equal(realOrder.body.error.code, 'MCP_UNAVAILABLE');
+  }
 
   const stores = await call(base, '/api/stores');
   assert.equal(stores.status, 200);

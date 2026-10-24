@@ -208,6 +208,8 @@ export function isSuccess(r: PlanResponse): boolean {
 export interface OrderRequest {
   storeCode: string;
   items: Array<{ code: string; quantity: number }>;
+  beType?: number; // 1: 到店取餐（默认）/ 2: 麦乐送 / 5: 得来速 / 6: 团餐
+  mock?: boolean; // 仅演示用：不调 MCP，响应 meta.source='mock'
 }
 
 export interface OrderResponse {
@@ -216,8 +218,19 @@ export interface OrderResponse {
   order?: {
     orderId: string;
     total_price: number;
-    payH5Url: string; // 渲染成二维码即可
-    expireAt: string;
+    payH5Url: string; // 渲染成二维码即可，禁止自动跳转/自动支付
+    expireAt: string | null; // MCP 未返回支付截止时间时为 null，前端不要编造倒计时
+    storeName?: string | null;
+    orderStatus?: string | null;
+  };
+  /** 核价结果：快照价 vs MCP 实时价，matched=false 时后端已拦截（409），不会下单 */
+  price_check?: {
+    expected_price: number | null;
+    actual_price: number;
+    product_price: number;
+    delivery_price: number;
+    discount: number;
+    matched: boolean | null;
   };
   error?: ApiError;
   meta: Meta;
