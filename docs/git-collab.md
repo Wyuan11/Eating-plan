@@ -129,3 +129,56 @@ git commit                 # 完成合并
 ```
 
 不确定的话先 `git merge --abort` 撤回，商量好再合。48 小时赛程里，**改文件前先说一声**比事后解冲突便宜得多。
+
+---
+
+## 六、GitHub 远端协作（Wyuan11/Eating-plan）
+
+远端仓库：`https://github.com/Wyuan11/Eating-plan`（Public，分支策略 main + feat/*）。
+
+### 我（仓库所有者）：首次上传
+
+> 注意：GitHub 网页上已手动上传过一版文件快照（无提交历史的孤立提交）。
+> 本地仓库有完整历史且内容是其超集，首次推送用 `--force` 把它替换掉，
+> 文件内容不会丢。之后的日常推送不再需要 force。
+
+一条命令完成（远端地址已配置好）：
+
+```bash
+bash scripts/push-github.sh
+```
+
+或手动：
+
+```bash
+git push -u origin main --force
+git push -u origin feat/web-frontend feat/backend-api
+```
+
+首次推送会弹 GitHub 登录窗口，授权一次即可。若在终端里被要求输密码：
+GitHub 已停用账号密码认证，需要 Personal Access Token，或改用 GitHub Desktop。
+
+### 队友：提 PR 的标准流程（GitHub Desktop）
+
+1. `File → Clone repository → 选 Wyuan11/Eating-plan → Clone`
+2. `Current branch → New branch`，起名如 `backend-solver` / `skill-mcp`（**别在 main 上直接改**）
+3. 写代码 → 填 commit message → `Commit`
+4. `Publish branch`（或 `Push origin`）推到 GitHub
+5. 顶部 `Create Pull Request`（或仓库网页的黄色 `Compare & pull request` 横幅）→ 填标题说明 → 创建
+6. 我在网页上 Review 后 Merge 进 main
+
+### merge 前的自查（PR 作者）
+
+- [ ] `git config core.hooksPath githooks` 已跑过（密钥钩子生效）
+- [ ] 没有 `.env`、Token、bundle、`node_modules`、`dist` 混进提交（都在 .gitignore，正常不会）
+- [ ] `node scripts/demo-check.js` 通过
+
+### 仓库是 Public 的红线
+
+- 确认提交里没有真实 Token（钩子会拦，但别 `--no-verify` 绕过）
+- `docs/` 里的接口文档、方案数值可以公开；**任何密钥、任何形式都不行**
+
+### bundle 与 GitHub 的关系
+
+GitHub 通了之后，`bundle-out.sh / bundle-in.sh` 降级为断网备份手段，
+日常协作以 GitHub PR 为准（历史可追溯、可 Review）。
