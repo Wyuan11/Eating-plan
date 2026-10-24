@@ -17,12 +17,19 @@ function toFen(n) {
 function trustedPool(items) {
   return items.filter(i => i.kind === 'single' && i.calorie_source === 'official' && i.available !== false);
 }
+// 品类级忌口：用户说「不要饮料/甜点/小吃」时按 category 整类过滤。
+// 品类口径与菜单一致：主食/小食/饮品/甜品；同义词归一到菜单用词。
+const CATEGORY_ALIASES = { '饮料': '饮品', '饮品': '饮品', '甜点': '甜品', '甜品': '甜品', '小吃': '小食', '小食': '小食' };
 function applyExclusions(items, excluded = []) {
-  return items.filter(i => !excluded.some(k => {
-    // Exact tag matching: 不辣 is not 辣. Remove the literal negation in names only.
-    const name = k === '辣' ? i.name.replace(/不辣/g, '') : i.name;
-    return (i.tags || []).includes(k) || name.includes(k);
-  }));
+  const bannedCats = new Set(excluded.map(k => CATEGORY_ALIASES[k]).filter(Boolean));
+  return items.filter(i => {
+    if (bannedCats.has(i.category)) return false;
+    return !excluded.some(k => {
+      // Exact tag matching: 不辣 is not 辣. Remove the literal negation in names only.
+      const name = k === '辣' ? i.name.replace(/不辣/g, '') : i.name;
+      return (i.tags || []).includes(k) || name.includes(k);
+    });
+  });
 }
 /** The ONLY aggregation source. Input entries use unit price/calorie and quantity. */
 function summarize(items, constraints = {}) {

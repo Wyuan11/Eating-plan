@@ -4,7 +4,7 @@
   "status": "success",
   "request": {
     "storeCode": "1450713",
-    "storeName": null,
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "constraints": {
       "budget": 60,
       "calorie_limit": 1200,
@@ -156,8 +156,9 @@
   "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
   "meta": {
     "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-success",
-    "elapsedMs": 276
+    "elapsedMs": 242
   }
 }
