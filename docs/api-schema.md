@@ -460,4 +460,14 @@ MCD_MCP_TOKEN=xxx npm run probe:temp
 ```
 
 只读调用 `query-meal-detail` 扫描全部可信饮品的定制项，结论写入 `data/temperature-probe.json`。
-有温度选项 → 补进菜单快照；没有 → 走 notes 披露路径。
+
+**实测结论（2026-10-24，门店 1450713）**：MCP 不提供直接的冷/热字段，但 5/14 个饮品的定制项里有
+**去冰/多冰/少冰** —— 有冰量选项即「默认冰饮」。据此：
+
+```bash
+npm run menu:temp   # 读取 temperature-probe.json，给菜单快照标注 temperature:'cold'（原子写回）
+```
+
+- 标注 `temperature:'cold'`：美汁源黄金橙橙、雪碧、燕麦奶铁、阳光柠檬红茶、怡泉+C
+- 其余饮品**不标注**：无冰量选项 ≠ 已知冷热（可能是热饮也可能常温），求解器对未标注者不做温度过滤
+- 「不要冰饮」现在可真实执行；`notes` 会说明「已按 temperature 过滤 + N 件饮品未标注温度」

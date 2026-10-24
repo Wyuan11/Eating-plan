@@ -158,7 +158,7 @@ function fmtTime(iso) {
 
     <!-- 已记录但无法参与求解的诉求（如「不要冰饮」菜单无温度数据）：如实披露，不静默丢弃 -->
     <div v-for="n in notes" :key="n.text" class="note-banner" role="status">
-      📌 「{{ n.text }}」<strong>已记录但未参与求解</strong>：{{ n.reason }}
+      📌 「{{ n.text }}」—— {{ n.reason }}
     </div>
 
     <!-- 超标拦截（关键职责）：微调后同样生效 -->

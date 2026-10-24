@@ -196,10 +196,10 @@ function solve(menuItems, c = {}, options = {}) {
           reason: '菜单快照没有温度属性数据，该忌口无法参与求解（未替你过滤任何商品，也未伪造冷热判断）',
         });
       } else {
-        const unknown = trusted.filter(i => !i.temperature).length;
+        const unknown = trusted.filter(i => i.category === '饮品' && !i.temperature).length;
         notes.push({
           text: `不要${tempExclusions.map(k => k.replace(/的$/, '')).join('、')}`,
-          reason: `已按菜单 temperature 字段过滤；另有 ${unknown} 件商品未标注温度，未做处理`,
+          reason: `已按菜单 temperature 字段过滤标注为冰饮的商品；另有 ${unknown} 件饮品未标注温度（无冰量选项≠已知冷热），未做处理`,
         });
       }
     }

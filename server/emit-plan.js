@@ -145,7 +145,7 @@ function emit(opts) {
     console.log(`说明：${payload.error?.detail}`);
   } else if (payload.status === 'success') {
     console.log(`[OK] traceId=${payload.traceId}`);
-    for (const n of payload.request.notes || []) console.log(`[注意] 「${n.text}」已记录但未参与求解：${n.reason}`);
+    for (const n of payload.request.notes || []) console.log(`[注意] 「${n.text}」${n.reason}`);
     console.log(`共 ${payload.plans.length} 个方案（均满足约束，按策略区分）：`);
     payload.plans.forEach((p, i) => {
       console.log(
