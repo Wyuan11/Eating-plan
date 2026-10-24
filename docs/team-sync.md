@@ -221,3 +221,38 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 3. 三态渲染：`status` = `success` / `nosolution`（展示 conflict + hint）/ `error`（展示 error.detail）。
 4. 未生成时是 **404 + `status:"pending"`** ——继续轮询（1.5s），不要弹报错。
 5. 接真实触发：`node server/trigger-skill.js --text "..." --traceId web-001`，脚本会等方案落盘。
+
+---
+
+## 七、前端模板已入库（2026-10-24 15:10）
+
+队友的 Vue3 + Vite 渲染壳（`Eating-plan-main.zip`）已合入 `web/`，`vite build` 通过（39 modules）、`vite preview` 访问 200。
+
+### 我改了什么、为什么（前端同事请重点看）
+
+| 改动 | 原因 |
+|---|---|
+| 剔除模板自带的 `web/src/mock/` | 那是 v1 旧形态（顶层 `constraints`、`success` 布尔），与真实落盘差 9 个字段。改用项目 `web/mock/`，由 solver 真实求解生成 |
+| 新增 `web/src/lib/normalize.js` | `verify.js` 读 `result.success` 和顶层 `constraints`，而真实落盘是 `status` 三态 + `request.constraints`。**不归一化的话校验徽章永远不亮** |
+| `api.js` mock 路径改 `../../mock/` | 对齐项目的 `web/mock/` |
+| `api.js` 返回值过 `normalizePlan()` | 后端 A 的 `api.js` 还没写完、返回形态未定，归一化层同时吃 v1 / v1.1 |
+
+### 归一化后的约定（组件照这个写）
+
+```js
+import { normalizePlan, isSuccess, isNoSolution, isError } from './lib/normalize.js';
+
+const plan = normalizePlan(任何来源的响应);
+isSuccess(plan) / isNoSolution(plan) / isError(plan)   // 三态唯一判据
+plan.constraints        // 与 plan.request.constraints 是同一个对象
+plan.objective          // balanced / lowest_price / lowest_calorie
+plan.meta               // { storeCode, traceId, generatedAt, elapsedMs }
+```
+
+`status` 会原样保留未知值（例如 `'pending'`），**不会被误判成无解**——前端据此继续轮询。
+
+### 前端仍待完成
+
+1. 组件全面改用 `normalizePlan` 后的三态（目前部分组件仍读 `success` / `constraints`）。
+2. 接真实数据源：`node server/bridge.js --port 8787`，`/api/plan/<traceId>` 已有 CORS；或等后端 A 的 `api.js`（Vite 已把 `/api` 代理到 3000）。
+3. 轮询：未生成时 404 + `status:"pending"`，1.5s 重试，不弹报错。

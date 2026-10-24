@@ -46,7 +46,26 @@ node server/fetch-menu.js --offline # 完全离线重跑营养匹配（菜单与
 | `server/outbox.js` / `bridge.js` | 文件桥：tmp→fsync→rename 原子写 + `GET /api/plan/<traceId>` |
 | `server/trigger-skill.js` | 经本机 Gateway HTTP 触发 Skill 并轮询结果 |
 | `.workbuddy/skills/mcd-smart-order/` | Skill 包（约束提取规则 + 测试用例） |
-| `docs/` | `api-schema.md`(契约) / `gateway-api.md`(HTTP 触发协议) / `team-sync.md`(协作同步) |
+| `web/` | Vue3 + Vite 前端渲染壳（只渲染与算术校验，不直连 MCP） |
+| `web/src/lib/normalize.js` | 契约归一化：任意响应 → canonical v1.1（三态 + request.constraints） |
+| `docs/` | `api-schema.md`(契约) / `gateway-api.md`(HTTP 触发协议) / `team-sync.md`(协作同步) / `git-collab.md`(协作流程) |
+
+### 前端启动
+
+```bash
+cd web
+npm install
+npm run dev        # http://localhost:5173，/api 已代理到 3000
+```
+
+### 与队友同步代码（无远端时用 git bundle）
+
+```bash
+bash scripts/bundle-out.sh              # 打包成 bundles/*.bundle，发给队友
+bash scripts/bundle-in.sh <收到的文件>   # 校验并拉取队友的分支（不自动合并）
+```
+
+细节见 `docs/git-collab.md`。**手敲命令时必须用 `--branches HEAD`**：用 `--all` 队友看不到协作分支，漏了 `HEAD` 队友 clone 完工作区是空的。
 
 方案落盘位置：`data/skill-outbox/plan-<traceId>.json`（运行时产物，已忽略）。
 方案未生成时桥接返回 **404 + `status:"pending"`**，前端应继续轮询，不要当失败。
