@@ -1,79 +1,70 @@
 {
+  "traceId": "mock-success",
+  "createdAt": "2026-10-24T12:50:00.000Z",
+  "status": "success",
+  "request": {
+    "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "constraints": {
+      "budget": 60,
+      "calorie_limit": 1200,
+      "people": 2,
+      "excluded": [
+        "辣"
+      ]
+    },
+    "intent": "两个人午餐，预算60元，热量不超过1200大卡，不要辣"
+  },
   "success": true,
   "message": "推荐完成",
-  "constraints": {
-    "budget": 60,
-    "calorie_limit": 1200,
-    "people": 2,
-    "excluded": [
-      "辣"
-    ]
-  },
+  "objective": "balanced",
   "plan": {
-    "total_price": 56.9,
-    "total_calorie": 962,
-    "original_price": 70,
+    "total_price": 57.9,
+    "total_calorie": 965,
+    "original_price": 71,
     "saved": 13.1,
-    "budget_usage": "95%",
+    "budget_usage": "97%",
     "calorie_usage": "80%"
   },
   "items": [
     {
-      "code": "1120",
-      "name": "双层吉士汉堡",
-      "price": 23,
-      "calorie": 429,
+      "code": "1106",
+      "name": "培根蔬萃双层牛堡",
+      "price": 24.5,
+      "calorie": 442,
       "calorie_source": "official",
       "category": "主食",
       "quantity": 1,
       "nutrition": {
-        "protein": 27,
-        "fat": 22,
-        "carbohydrate": 31,
-        "sodium": 1017,
-        "calcium": 232
-      },
-      "tags": [
-        "单品",
-        "100%纯牛肉"
-      ]
-    },
-    {
-      "code": "1450",
-      "name": "麦香鸡",
-      "price": 17,
-      "calorie": 369,
-      "calorie_source": "official",
-      "category": "主食",
-      "quantity": 1,
-      "nutrition": {
-        "protein": 15,
-        "fat": 17,
-        "carbohydrate": 39,
-        "sodium": 731,
+        "protein": 24,
+        "fat": 23,
+        "carbohydrate": 34,
+        "sodium": 728,
         "calcium": 73
       },
       "tags": [
-        "单品"
+        "不辣",
+        "牛肉"
       ]
     },
     {
-      "code": "6102",
-      "name": "苹果片",
-      "price": 7,
-      "calorie": 32,
+      "code": "1406",
+      "name": "板烧鸡腿堡",
+      "price": 23.5,
+      "calorie": 391,
       "calorie_source": "official",
-      "category": "小食",
+      "category": "主食",
       "quantity": 1,
       "nutrition": {
-        "protein": 0,
-        "fat": 0,
-        "carbohydrate": 7,
-        "sodium": 0,
-        "calcium": 18
+        "protein": 23,
+        "fat": 17,
+        "carbohydrate": 35,
+        "sodium": 1041,
+        "calcium": 93
       },
       "tags": [
-        "小食"
+        "不辣",
+        "鸡肉"
       ]
     },
     {
@@ -92,43 +83,65 @@
         "calcium": 270
       },
       "tags": [
-        "麦咖啡™咖啡"
+        "不辣",
+        "麦咖啡"
       ]
     }
   ],
   "nutrition": {
-    "protein": 45,
-    "fat": 44,
-    "carbohydrate": 94,
-    "sodium": 1835,
-    "calcium": 593
+    "protein": 50,
+    "fat": 45,
+    "carbohydrate": 86,
+    "sodium": 1856,
+    "calcium": 436
   },
   "alternatives": [
     {
-      "label": "更省钱的",
-      "total_price": 39.5,
-      "total_calorie": 694,
+      "objective": "cheapest",
+      "label": "最省钱",
+      "total_price": 46,
+      "total_calorie": 858,
       "items": [
         {
-          "name": "麦香鸡",
-          "price": 17,
-          "calorie": 369
-        },
+          "code": "1120",
+          "name": "双层吉士汉堡",
+          "price": 23,
+          "calorie": 429,
+          "calorie_source": "official",
+          "category": "主食",
+          "quantity": 2
+        }
+      ]
+    },
+    {
+      "objective": "lowest_calorie",
+      "label": "最低卡",
+      "total_price": 47,
+      "total_calorie": 782,
+      "items": [
         {
-          "name": "麦香鱼",
-          "price": 22.5,
-          "calorie": 325
+          "code": "1406",
+          "name": "板烧鸡腿堡",
+          "price": 23.5,
+          "calorie": 391,
+          "calorie_source": "official",
+          "category": "主食",
+          "quantity": 2
         }
       ]
     }
   ],
-  "suggestion": "共 4 件，实付 56.9 元，占预算 95%。热量 962 大卡，占上限 80%。蛋白质 45g / 碳水 94g / 脂肪 44g。已享优惠省下 13.1 元。本方案在 615 个可行组合中选出，热量与价格均为官方数据精确累加，不含估算值——官方尚未公布营养数据的新品（如龙焰系列）未参与计算，这是刻意的。",
-  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
+  "suggestion": "共 3 件；在 142 个可行组合中按「均衡推荐」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。",
+  "reason": null,
+  "conflict": null,
+  "hint": null,
+  "error": null,
+  "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
   "meta": {
     "storeCode": "1450713",
-    "generatedAt": "2026-10-24T05:13:02.656Z",
-    "traceId": "solver-1792818782666",
-    "candidates": 615,
-    "elapsedMs": 11
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "generatedAt": "2026-10-24T12:50:00.000Z",
+    "traceId": "mock-success",
+    "elapsedMs": 101
   }
 }

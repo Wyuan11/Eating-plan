@@ -1,19 +1,36 @@
 {
+  "traceId": "mock-nosolution",
+  "createdAt": "2026-10-24T12:50:00.000Z",
+  "status": "nosolution",
+  "request": {
+    "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "constraints": {
+      "budget": 15,
+      "calorie_limit": null,
+      "people": 3,
+      "excluded": []
+    },
+    "intent": "三个人吃午饭，预算只有15元"
+  },
   "success": false,
   "message": "约束过严，无法生成可行方案",
-  "reason": "3 人用餐最少需要 3 份主食，当前门店最便宜的主食为 麦香鸡 17 元，3 份已需 51 元，超出 15 元预算",
+  "objective": null,
+  "plan": null,
+  "items": [],
+  "nutrition": null,
+  "alternatives": [],
+  "suggestion": null,
+  "reason": "在当前可信单品池内，3 份主食的最低价格为 67.5 元，最低热量为 1173 kcal（两项下界可能来自不同组合）；当前约束下没有可行组合",
   "conflict": "预算 vs 人数",
-  "hint": "把预算提高到 51 元以上，或把人数调整为 1 人（单人最低可行方案约 17 元）",
-  "constraints": {
-    "budget": 15,
-    "calorie_limit": 300,
-    "people": 3,
-    "excluded": []
-  },
-  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
+  "hint": "保留当前热量上限，预算提高到 67.5 元即可组成主食方案",
+  "error": null,
+  "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
   "meta": {
     "storeCode": "1450713",
-    "generatedAt": "2026-10-24T05:13:12.386Z",
-    "elapsedMs": 2
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "generatedAt": "2026-10-24T12:50:00.000Z",
+    "traceId": "mock-nosolution",
+    "elapsedMs": 1
   }
 }

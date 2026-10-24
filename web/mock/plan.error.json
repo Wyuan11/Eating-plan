@@ -1,14 +1,40 @@
 {
-  "success": false,
-  "message": "上游服务暂不可用",
-  "error": {
-    "code": "MCP_UPSTREAM_ERROR",
-    "detail": "MCP query-meals 超时（>8s）",
-    "retryable": true
+  "traceId": "mock-error",
+  "createdAt": "2026-10-24T12:50:00.000Z",
+  "status": "error",
+  "request": {
+    "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "constraints": {
+      "budget": 0,
+      "calorie_limit": null,
+      "people": 1,
+      "excluded": []
+    },
+    "intent": "预算0元"
   },
+  "success": false,
+  "message": "求解失败",
+  "objective": null,
+  "plan": null,
+  "items": [],
+  "nutrition": null,
+  "alternatives": [],
+  "suggestion": null,
+  "reason": null,
+  "conflict": null,
+  "hint": null,
+  "error": {
+    "code": "BAD_REQUEST",
+    "detail": "budget 必须大于 0",
+    "retryable": false
+  },
+  "source_note": null,
   "meta": {
     "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-error",
-    "generatedAt": "2026-10-24T12:50:00+08:00"
+    "elapsedMs": 1
   }
 }

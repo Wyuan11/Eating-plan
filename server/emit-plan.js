@@ -23,46 +23,43 @@ const { writePlan } = require('./outbox');
 
 const ROOT = path.join(__dirname, '..');
 
-function main() {
-  const argv = process.argv.slice(2);
-  const arg = (k, d) => {
-    const i = argv.indexOf(`--${k}`);
-    return i >= 0 ? argv[i + 1] : d;
-  };
-
-  const traceId = arg('traceId', null) || `t${Date.now()}`;
-  const menuFile = arg('menu', path.join(ROOT, 'web/mock/menu.json'));
-  const storeCode = arg('store', '1450713');
-  const intent = arg('intent', '');
-  const excluded = arg('exclude', '') ? arg('exclude').split(/[,，\s]+/).filter(Boolean) : [];
-  const calorieRaw = arg('calorie', null);
-
-  const constraints = {
-    budget: Number(arg('budget', 60)),
-    // 关键：没传 --calorie 就是 null，绝不替用户编造热量上限
-    calorie_limit: calorieRaw == null || calorieRaw === '' ? null : Number(calorieRaw),
-    people: Number(arg('people', 1)),
-    excluded,
-  };
+/**
+ * 构造落盘 payload（纯函数，不写文件）
+ *
+ * 抽出来导出是为了让 scripts/build_mock.js 复用同一份逻辑生成前端 Mock——
+ * Mock 和真实落盘走同一段代码，就不可能出现「Mock 是旧结构、真实是新结构」的漂移。
+ */
+function buildPayload(opts) {
+  const {
+    traceId = `t${Date.now()}`,
+    menuFile = path.join(ROOT, 'web/mock/menu.json'),
+    storeCode = '1450713',
+    intent = '',
+    constraints = { budget: 60, calorie_limit: null, people: 1, excluded: [] },
+    objective = 'balanced',
+  } = opts || {};
 
   let menu;
   try {
     menu = JSON.parse(fs.readFileSync(path.resolve(ROOT, menuFile), 'utf8'));
   } catch (e) {
-    const target = writePlan(traceId, {
-      traceId, createdAt: new Date().toISOString(), status: 'error',
-      request: { storeCode, constraints, intent },
+    return {
+      traceId,
+      createdAt: new Date().toISOString(),
+      status: 'error',
+      request: { storeCode, storeName: null, constraints, intent },
+      success: false,
       message: `菜单读取失败: ${e.message}`,
-    });
-    console.log(`[ERROR] 菜单读取失败，已写入 ${target}`);
-    process.exit(1);
+      error: { code: 'INTERNAL_ERROR', detail: `菜单读取失败: ${e.message}`, retryable: false },
+      items: [],
+      alternatives: [],
+      plan: null,
+      nutrition: null,
+    };
   }
 
   const t0 = Date.now();
-  const res = solve(
-    menu.items,
-    { ...constraints, storeCode, storeName: menu.store?.name, objective: arg('objective', 'balanced') },
-  );
+  const res = solve(menu.items, { ...constraints, storeCode, storeName: menu.store?.name, objective });
   if (res.meta) {
     res.meta.elapsedMs = Date.now() - t0;
     // solver 自己会生成一个 solver-<ts> 的 traceId，和外层落盘用的不是同一个。
@@ -102,24 +99,60 @@ function main() {
     meta: res.meta ?? null,
   };
 
-  const target = writePlan(traceId, payload);
+  return payload;
+}
+
+/** 构造 + 原子落盘 + 终端摘要。Skill 侧与 CLI 都走这里。 */
+function emit(opts) {
+  const payload = buildPayload(opts);
 
   if (payload.status === 'error') {
-    console.log(`[ERROR] traceId=${traceId}`);
+    console.log(`[ERROR] traceId=${payload.traceId}`);
     console.log(`错误码：${payload.error?.code}`);
     console.log(`说明：${payload.error?.detail}`);
   } else if (payload.status === 'success') {
-    console.log(`[OK] traceId=${traceId}`);
+    console.log(`[OK] traceId=${payload.traceId}`);
     console.log(`方案：${payload.items.map((i) => `${i.name}×${i.quantity}`).join(' + ')}`);
     console.log(`合计 ¥${payload.plan.total_price} / ${payload.plan.total_calorie} kcal`);
   } else {
-    console.log(`[NO-SOLUTION] traceId=${traceId}`);
+    console.log(`[NO-SOLUTION] traceId=${payload.traceId}`);
     console.log(`原因：${payload.reason}`);
     console.log(`建议：${payload.hint || (payload.error && payload.error.detail) || '放宽预算或人数'}`);
   }
+
+  const target = writePlan(payload.traceId, payload);
   console.log(`已写入 ${path.relative(ROOT, target)}`);
+  return { payload, target };
+}
+
+function main() {
+  const argv = process.argv.slice(2);
+  const arg = (k, d) => {
+    const i = argv.indexOf(`--${k}`);
+    return i >= 0 ? argv[i + 1] : d;
+  };
+  const calorieRaw = arg('calorie', null);
+  const excluded = arg('exclude', '') ? arg('exclude').split(/[,，\s]+/).filter(Boolean) : [];
+
+  const { payload } = emit({
+    traceId: arg('traceId', null) || `t${Date.now()}`,
+    menuFile: arg('menu', path.join(ROOT, 'web/mock/menu.json')),
+    storeCode: arg('store', '1450713'),
+    intent: arg('intent', ''),
+    objective: arg('objective', 'balanced'),
+    constraints: {
+      budget: Number(arg('budget', 60)),
+      // 关键：没传 --calorie 就是 null，绝不替用户编造热量上限
+      calorie_limit: calorieRaw == null || calorieRaw === '' ? null : Number(calorieRaw),
+      people: Number(arg('people', 1)),
+      excluded,
+    },
+  });
+
+  // 菜单读不出来属于环境故障，给非零退出码便于脚本判断
+  if (payload.status === 'error' && payload.error?.code === 'INTERNAL_ERROR') process.exit(1);
 }
 
 if (require.main === module) main();
 
-module.exports = { emitPlanPath: path.join(ROOT, 'data', 'skill-outbox') };
+module.exports = { buildPayload, emit, emitPlanPath: path.join(ROOT, 'data', 'skill-outbox') };

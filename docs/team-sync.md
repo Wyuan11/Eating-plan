@@ -180,3 +180,41 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 4. **门店固定 `1450713`，到店自取 `orderType=1 / beType=1`**（账号是空号，无配送地址）。
 5. **MCP 限流 600 次/分钟**，不要循环拉菜单。
 6. **Skill 必须在链路核心位置**（参赛合规），Web 只做渲染，不直连 MCP。
+
+---
+
+## 五、契约已收敛（10-24 14:45）——前端 Mock 与真实落盘零差异
+
+之前 Mock 是 Python 脚本手工拼装，和 solver v1.1 的真实输出已经漂移了 9 个字段。现在改成同源生成：
+
+- `server/emit-plan.js` 抽出 `buildPayload(opts)` 纯函数并导出（CLI 行为不变，照旧可用）。
+- 新增 `scripts/build_mock.js`：调 `buildPayload` 生成三态 Mock，写 `web/mock/plan.{success,nosolution,error}.json`。
+- **Mock 与真实落盘走同一段代码**，字段差异实测为「无 / 无」，从此不会漂移。
+- `web/src/types.ts` 已更新到 v1.1：`status` 三态判别、`request.constraints`、`objective`、`Alternative.items` 为完整 `PlanItem[]`（含 code/quantity，可直接下单）。
+  - 旧代码若用了 `success` 布尔或顶层 `constraints`，需改；已保留 `isNoSolution/isError/isSuccess` 三个守卫，内部优先读 `status`。
+- `menu.json` / `stores.json` 仍由 `scripts/build_mock.py` 从实测快照生成（菜单 124 品、可信池 33、营养缺失 0，健康）。
+
+**前端现在可以直接按 `web/mock/plan.*.json` 的结构写渲染，接上 bridge 后不用改解析。**
+
+## 六、当前缺口清单（10-24 14:45）
+
+| # | 缺口 | 归属 | 状态 |
+|---|---|---|---|
+| 1 | **Web 模板还没进仓库**（仓库里只有 `mock/` + `types.ts`，无页面/构建配置） | 前端 | 待接入 |
+| 2 | `server/api.js`：`/api/stores`、`/api/menu`、`/api/plan`、`/api/order`、`/api/health` | 后端 A | 未开工 |
+| 3 | 下单链路 `create-order` → 支付链接（演示终点，不支付） | 后端 A | 未开工 |
+| 4 | 前端独立重算价格/热量 + 超标标红（Schema 第 6 节，P0） | 前端 | 待实现 |
+| 5 | 前端 5 态状态机 + `pending` 轮询（404+`status=pending` 要继续轮询） | 前端 | 待实现 |
+| 6 | `nutritionToMap` 的 `Number() \|\| 0` 归零缺陷 | 后端 A | 待修 |
+| 7 | 菜单构建跳过「有 code 无详情」的条目（140 vs 125/129） | 后端 A | 待修 |
+| 8 | 一键演示/彩排脚本 | Skill 侧 | 待补 |
+| 9 | 答辩材料（PPT、demo 话术） | 产品文档 | 未开工 |
+
+### 前端接入时按这个顺序做
+
+1. 把模板放进 `web/`，构建配置指向 `web/mock/*.json` 作为本地数据源。
+2. 数据源切换：`/api/plan/<traceId>` 走 `node server/bridge.js --port 8787`（已实测可用，带 CORS）。
+   `api.js` 出来后返回**同一套 `PlanEnvelope` 结构**，前端不用改解析。
+3. 三态渲染：`status` = `success` / `nosolution`（展示 conflict + hint）/ `error`（展示 error.detail）。
+4. 未生成时是 **404 + `status:"pending"`** ——继续轮询（1.5s），不要弹报错。
+5. 接真实触发：`node server/trigger-skill.js --text "..." --traceId web-001`，脚本会等方案落盘。
