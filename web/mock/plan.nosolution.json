@@ -1,0 +1,19 @@
+{
+  "success": false,
+  "message": "约束过严，无法生成可行方案",
+  "reason": "3 人用餐最少需要 3 份主食，当前门店最便宜的主食为 麦香鸡 17 元，3 份已需 51 元，超出 15 元预算",
+  "conflict": "预算 vs 人数",
+  "hint": "把预算提高到 51 元以上，或把人数调整为 1 人（单人最低可行方案约 17 元）",
+  "constraints": {
+    "budget": 15,
+    "calorie_limit": 300,
+    "people": 3,
+    "excluded": []
+  },
+  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
+  "meta": {
+    "storeCode": "1450713",
+    "generatedAt": "2026-10-24T05:13:12.386Z",
+    "elapsedMs": 2
+  }
+}

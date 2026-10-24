@@ -1,0 +1,30 @@
+{
+  "success": true,
+  "items": [
+    {
+      "code": "1450713",
+      "name": "麦当劳上海黄浦华旭国际大厦餐厅",
+      "address": "南京东路街道西藏中路336号",
+      "distance": "0.3km",
+      "beType": 1
+    },
+    {
+      "code": "1450801",
+      "name": "麦当劳上海黄浦南京东路餐厅",
+      "address": "南京东路720号",
+      "distance": "0.8km",
+      "beType": 1
+    },
+    {
+      "code": "1450912",
+      "name": "麦当劳上海黄浦人民广场餐厅",
+      "address": "西藏中路268号",
+      "distance": "1.2km",
+      "beType": 1
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-10-24T12:50:00+08:00",
+    "source": "mcd-mcp query-nearby-stores"
+  }
+}

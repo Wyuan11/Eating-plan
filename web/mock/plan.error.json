@@ -1,0 +1,14 @@
+{
+  "success": false,
+  "message": "上游服务暂不可用",
+  "error": {
+    "code": "MCP_UPSTREAM_ERROR",
+    "detail": "MCP query-meals 超时（>8s）",
+    "retryable": true
+  },
+  "meta": {
+    "storeCode": "1450713",
+    "traceId": "mock-error",
+    "generatedAt": "2026-10-24T12:50:00+08:00"
+  }
+}

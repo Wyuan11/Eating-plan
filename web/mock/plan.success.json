@@ -1,0 +1,134 @@
+{
+  "success": true,
+  "message": "推荐完成",
+  "constraints": {
+    "budget": 60,
+    "calorie_limit": 1200,
+    "people": 2,
+    "excluded": [
+      "辣"
+    ]
+  },
+  "plan": {
+    "total_price": 56.9,
+    "total_calorie": 962,
+    "original_price": 70,
+    "saved": 13.1,
+    "budget_usage": "95%",
+    "calorie_usage": "80%"
+  },
+  "items": [
+    {
+      "code": "1120",
+      "name": "双层吉士汉堡",
+      "price": 23,
+      "calorie": 429,
+      "calorie_source": "official",
+      "category": "主食",
+      "quantity": 1,
+      "nutrition": {
+        "protein": 27,
+        "fat": 22,
+        "carbohydrate": 31,
+        "sodium": 1017,
+        "calcium": 232
+      },
+      "tags": [
+        "单品",
+        "100%纯牛肉"
+      ]
+    },
+    {
+      "code": "1450",
+      "name": "麦香鸡",
+      "price": 17,
+      "calorie": 369,
+      "calorie_source": "official",
+      "category": "主食",
+      "quantity": 1,
+      "nutrition": {
+        "protein": 15,
+        "fat": 17,
+        "carbohydrate": 39,
+        "sodium": 731,
+        "calcium": 73
+      },
+      "tags": [
+        "单品"
+      ]
+    },
+    {
+      "code": "6102",
+      "name": "苹果片",
+      "price": 7,
+      "calorie": 32,
+      "calorie_source": "official",
+      "category": "小食",
+      "quantity": 1,
+      "nutrition": {
+        "protein": 0,
+        "fat": 0,
+        "carbohydrate": 7,
+        "sodium": 0,
+        "calcium": 18
+      },
+      "tags": [
+        "小食"
+      ]
+    },
+    {
+      "code": "510479",
+      "name": "燕麦奶铁",
+      "price": 9.9,
+      "calorie": 132,
+      "calorie_source": "official",
+      "category": "饮品",
+      "quantity": 1,
+      "nutrition": {
+        "protein": 3,
+        "fat": 5,
+        "carbohydrate": 17,
+        "sodium": 87,
+        "calcium": 270
+      },
+      "tags": [
+        "麦咖啡™咖啡"
+      ]
+    }
+  ],
+  "nutrition": {
+    "protein": 45,
+    "fat": 44,
+    "carbohydrate": 94,
+    "sodium": 1835,
+    "calcium": 593
+  },
+  "alternatives": [
+    {
+      "label": "更省钱的",
+      "total_price": 39.5,
+      "total_calorie": 694,
+      "items": [
+        {
+          "name": "麦香鸡",
+          "price": 17,
+          "calorie": 369
+        },
+        {
+          "name": "麦香鱼",
+          "price": 22.5,
+          "calorie": 325
+        }
+      ]
+    }
+  ],
+  "suggestion": "共 4 件，实付 56.9 元，占预算 95%。热量 962 大卡，占上限 80%。蛋白质 45g / 碳水 94g / 脂肪 44g。已享优惠省下 13.1 元。本方案在 615 个可行组合中选出，热量与价格均为官方数据精确累加，不含估算值——官方尚未公布营养数据的新品（如龙焰系列）未参与计算，这是刻意的。",
+  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
+  "meta": {
+    "storeCode": "1450713",
+    "generatedAt": "2026-10-24T05:13:02.656Z",
+    "traceId": "solver-1792818782666",
+    "candidates": 615,
+    "elapsedMs": 11
+  }
+}

@@ -1,0 +1,15 @@
+# 统一行尾，避免 Windows(CRLF) / macOS(LF) 混用产生整文件 diff
+* text=auto
+
+# 二进制资源不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+
+# Shell 脚本必须保持 LF：Windows 检出成 CRLF 会导致 "/bin/sh^M: bad interpreter"
+# 这一条保证 git 钩子在 Windows / macOS / Linux 上都能正常执行
+*.sh text eol=lf
+githooks/* text eol=lf

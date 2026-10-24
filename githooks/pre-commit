@@ -1,0 +1,36 @@
+#!/bin/sh
+# 提交前拦截：防止两枚密钥（麦当劳 MCP Token / 本机 Gateway 密钥）误入仓库。
+# 启用方式（仓库根目录执行一次即可）：
+#   git config core.hooksPath githooks
+# 绕过（仅在确认安全时使用，不推荐）：git commit --no-verify
+
+set -e
+
+# 只检查本次暂存区的内容，避免全库历史扫描拖慢提交
+staged=$(git diff --cached --diff-filter=ACM -U0 | grep -E '^\+' | grep -vE '^\+\+\+' || true)
+
+if [ -z "$staged" ]; then
+  exit 0
+fi
+
+hit=$(printf '%s\n' "$staged" | grep -nE \
+  -e 'Bearer[[:space:]]+[A-Za-z0-9._-]{16,}' \
+  -e 'MCD_MCP_TOKEN[[:space:]]*=[[:space:]]*[A-Za-z0-9._-]{8,}' \
+  -e 'CODEBUDDY_GATEWAY_PASSWORD[[:space:]]*=[[:space:]]*[A-Za-z0-9._-]{8,}' \
+  || true)
+
+if [ -n "$hit" ]; then
+  echo "=========================================================="
+  echo "[pre-commit] 拒绝提交：检测到疑似密钥明文"
+  echo "=========================================================="
+  printf '%s\n' "$hit" | sed -E 's/(=.{4}).*/\1***(已截断)/' | head -10
+  echo
+  echo "处理方式："
+  echo "  1. 把真实值移入环境变量或 .env（.env 已被 .gitignore 忽略）"
+  echo "  2. 文档/示例中一律写成占位符，例如 MCD_MCP_TOKEN=xxx"
+  echo "  3. 确认无误再提交；确需绕过用 git commit --no-verify"
+  echo "=========================================================="
+  exit 1
+fi
+
+exit 0

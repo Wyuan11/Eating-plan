@@ -1,0 +1,35 @@
+# ---------- 密钥与本地环境（红线：绝不入库）----------
+.env
+.env.*
+!.env.example
+*.local
+
+# ---------- 依赖与构建产物 ----------
+node_modules/
+dist/
+build/
+web/dist/
+web/build/
+
+# ---------- 日志 ----------
+*.log
+
+# ---------- Python ----------
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ---------- 运行时产物 ----------
+# Skill 输出桥：每次求解生成，属于运行态不是源码
+data/skill-outbox/
+
+# 调试用的 MCP 原始响应（可能含完整菜单与图片地址）
+data/_raw-*.txt
+data/_toon-dbg.txt
+
+# ---------- 编辑器与系统 ----------
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

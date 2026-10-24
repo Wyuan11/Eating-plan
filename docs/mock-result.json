@@ -1,0 +1,114 @@
+{
+  "_note": "前端联调用 mock 数据，全部取自麦当劳 MCP 实测返回值（门店 1450713）。字段名与 Schema v1 严格一致，后端 Skill 接上后只需替换数据源，渲染层不用改。",
+  "_scenario": "两个女生，预算 60，在减脂，不吃辣，想低卡又划算",
+
+  "success": true,
+  "message": "推荐完成",
+
+  "constraints": {
+    "budget": 60,
+    "calorie_limit": 1200,
+    "people": 2,
+    "excluded": ["辣"]
+  },
+
+  "plan": {
+    "total_price": 57.9,
+    "total_calorie": 892,
+    "original_price": 71.0,
+    "saved": 13.1,
+    "budget_usage": "96%",
+    "calorie_usage": "74%"
+  },
+
+  "items": [
+    {
+      "code": "1406",
+      "name": "板烧鸡腿堡",
+      "price": 23.5,
+      "calorie": 391,
+      "calorie_source": "official",
+      "category": "主食",
+      "quantity": 1,
+      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20241008/product/MS_1406_320.png",
+      "tags": ["不辣", "鸡肉", "经典"]
+    },
+    {
+      "code": "1450",
+      "name": "麦香鸡",
+      "price": 17,
+      "calorie": 369,
+      "calorie_source": "official",
+      "category": "主食",
+      "quantity": 1,
+      "image": "https://menu-img.mcd.cn/pcm/prod/menu/ProductPool/product/MS_1450_320.png",
+      "tags": ["不辣", "鸡肉"]
+    },
+    {
+      "code": "510479",
+      "name": "燕麦奶铁",
+      "price": 9.9,
+      "calorie": 132,
+      "calorie_source": "official",
+      "category": "饮品",
+      "quantity": 1,
+      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20260422/product/MS_G510481_320.png",
+      "tags": ["麦咖啡", "促销"]
+    },
+    {
+      "code": "3757",
+      "name": "纯悦",
+      "price": 7.5,
+      "calorie": 0,
+      "calorie_source": "official",
+      "category": "饮品",
+      "quantity": 1,
+      "image": "https://menu-img.mcd.cn/pcm/prod/menu/20240904/product/MS_3757_320.png",
+      "tags": ["零卡", "无糖"]
+    }
+  ],
+
+  "nutrition": {
+    "protein": 41,
+    "fat": 39,
+    "carbohydrate": 91,
+    "sodium": 1859
+  },
+
+  "alternatives": [
+    {
+      "label": "更省钱的",
+      "total_price": 42.9,
+      "total_calorie": 647,
+      "items": [
+        { "name": "麦香鸡", "price": 17, "calorie": 369 },
+        { "name": "脆薯饼", "price": 8.5, "calorie": 146 },
+        { "name": "燕麦奶铁", "price": 9.9, "calorie": 132 },
+        { "name": "纯悦", "price": 7.5, "calorie": 0 }
+      ]
+    },
+    {
+      "label": "更低卡的",
+      "total_price": 55.0,
+      "total_calorie": 503,
+      "items": [
+        { "name": "麦香鱼", "price": 22.5, "calorie": 325 },
+        { "name": "玉米杯", "price": 13, "calorie": 53 },
+        { "name": "苹果片", "price": 7, "calorie": 32 },
+        { "name": "圆筒冰淇淋", "price": 5, "calorie": 93 },
+        { "name": "纯悦", "price": 7.5, "calorie": 0 }
+      ]
+    }
+  ],
+
+  "suggestion": "这套方案把预算用到了 96%，同时把热量压在你的 1200 大卡上限内（74%），两人分量也够。燕麦奶铁正在促销，单这一杯省了 13.1 元。如果想再省 15 元，可以切到「更省钱的」方案；想再砍 389 大卡，切「更低卡的」。注意：菜单里的新品（龙焰系列、心形薯饼等）官方暂未公布营养数据，我没有把它们算进热量里，也没有编造——这是刻意的。",
+
+  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
+
+  "meta": {
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "storeCode": "1450713",
+    "traceId": "c2596955db0929eeb875f19eb854a8ef8",
+    "generatedAt": "2026-10-24T12:40:00+08:00"
+  }
+}
