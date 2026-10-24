@@ -7,6 +7,7 @@
     "api": "node server/api.js",
     "bridge": "node server/bridge.js",
     "menu:fetch": "node server/fetch-menu.js --store 1450713",
+    "probe:temp": "node scripts/probe-temperature.js 1450713",
     "mock": "node scripts/build_mock.js",
     "check": "node scripts/demo-check.js",
     "test": "npm run test:solver && npm run test:api && npm run test:order",

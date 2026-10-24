@@ -98,6 +98,15 @@ function buildPayload(opts) {
       ? 'error'
       : 'nosolution';
 
+  // 求解器自己也会产出 notes（例如「不要冰饮」因菜单无温度数据无法执行），
+  // 与调用方传入的 notes 合并去重后一起回传，保证未生效的诉求不会被静默丢弃。
+  const solverNotes = Array.isArray(res.notes) ? res.notes : [];
+  const seenNotes = new Set(notes.map(n => `${n.text}|${n.reason}`));
+  for (const n of solverNotes) {
+    const k = `${n.text}|${n.reason}`;
+    if (!seenNotes.has(k)) { seenNotes.add(k); notes.push(n); }
+  }
+
   const payload = {
     traceId,
     createdAt: new Date().toISOString(),

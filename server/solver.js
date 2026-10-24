@@ -31,10 +31,17 @@ function trustedPool(items) {
 // 品类级忌口：用户说「不要饮料/甜点/小吃」时按 category 整类过滤。
 // 品类口径与菜单一致：主食/小食/饮品/甜品；同义词归一到菜单用词。
 const CATEGORY_ALIASES = { '饮料': '饮品', '饮品': '饮品', '甜点': '甜品', '甜品': '甜品', '小吃': '小食', '小食': '小食' };
+/** 温度类忌口：菜单若有 temperature 字段（cold/hot/any）才可执行；否则只能如实披露 */
+const TEMP_KEYWORDS = { '冰饮': 'cold', '冰的': 'cold', '冰镇': 'cold', '冷饮': 'cold', '热饮': 'hot', '热的': 'hot' };
+const TEMP_WORDS_RE = /(冰饮|冰的|冰镇|冷饮|热饮|热的)/;
+
 function applyExclusions(items, excluded = []) {
   const bannedCats = new Set(excluded.map(k => CATEGORY_ALIASES[k]).filter(Boolean));
+  const bannedTemps = new Set(excluded.map(k => TEMP_KEYWORDS[k]).filter(Boolean));
   return items.filter(i => {
     if (bannedCats.has(i.category)) return false;
+    // 温度忌口：只对「菜单明确标了 temperature」的商品生效，没有温度数据的一律不动（不猜）
+    if (bannedTemps.size && i.temperature && bannedTemps.has(i.temperature)) return false;
     return !excluded.some(k => {
       // Exact tag matching: 不辣 is not 辣. Remove the literal negation in names only.
       const name = k === '辣' ? i.name.replace(/不辣/g, '') : i.name;
@@ -163,6 +170,39 @@ function solve(menuItems, c = {}, options = {}) {
     const wantsOK = s => wantMatches.every(w =>
       s.list.reduce((n, i) => n + (matchesWant(i, w) ? i.quantity : 0), 0) === w.qty
     );
+
+    // 一人两杯咖啡不合理：饮品/甜品每人最多 1 件。
+    // 用户点名要的数量（wants）在 people 基础上额外放宽，避免与数量硬约束互相打架。
+    const CAPPED_CATEGORIES = ['饮品', '甜品'];
+    const extraByCat = {};
+    for (const w of wantMatches) {
+      for (const cat of new Set(w.inPool.map(i => i.category))) {
+        if (CAPPED_CATEGORIES.includes(cat)) extraByCat[cat] = (extraByCat[cat] || 0) + w.qty;
+      }
+    }
+    const capOf = cat => constraints.people + (extraByCat[cat] || 0);
+    const withinCategoryCap = s => CAPPED_CATEGORIES.every(cat =>
+      s.list.filter(i => i.category === cat).reduce((n, i) => n + i.quantity, 0) <= capOf(cat)
+    );
+
+    // 温度类忌口能否执行：菜单没有温度属性就只能如实披露，绝不替用户猜某杯是冰的
+    const tempExclusions = constraints.excluded.filter(k => TEMP_KEYWORDS[k]);
+    const hasTempData = trusted.some(i => i.temperature);
+    const notes = [];
+    if (tempExclusions.length) {
+      if (!hasTempData) {
+        notes.push({
+          text: `不要${tempExclusions.map(k => k.replace(/的$/, '')).join('、')}`,
+          reason: '菜单快照没有温度属性数据，该忌口无法参与求解（未替你过滤任何商品，也未伪造冷热判断）',
+        });
+      } else {
+        const unknown = trusted.filter(i => !i.temperature).length;
+        notes.push({
+          text: `不要${tempExclusions.map(k => k.replace(/的$/, '')).join('、')}`,
+          reason: `已按菜单 temperature 字段过滤；另有 ${unknown} 件商品未标注温度，未做处理`,
+        });
+      }
+    }
     const mains = pool.filter(i => i.category === '主食');
     const sides = pool.filter(i => i.category !== '主食');
     if (!mains.length) return fail('过滤后没有可用的官方营养主食，无法满足每人一份主食', '可信主食 vs 忌口', '尝试更换门店；仅在符合本人需求时放宽口味偏好，不建议放宽过敏限制');
@@ -197,6 +237,7 @@ function solve(menuItems, c = {}, options = {}) {
         if (s.priceFen > budgetFen) continue;
         if (constraints.calorie_limit !== null && s.plan.total_calorie > constraints.calorie_limit) continue;
         if (!wantsOK(s)) continue; // 正向诉求数量不满足的组合直接淘汰
+        if (!withinCategoryCap(s)) continue; // 一人两杯饮品/甜品不合理
         consider(s);
       }
     }
@@ -242,8 +283,8 @@ function solve(menuItems, c = {}, options = {}) {
     const items = top.list.map(toPlanItem);
     const wantNote = wantMatches.length ? `已严格按数量包含：${wantMatches.map(w => `${w.keyword}×${w.qty}`).join('、')}。` : '';
     return { success: true, message: '推荐完成', objective: normObjective, constraints, plan: top.plan, items, nutrition: top.nutrition,
-      plans, alternatives,
-      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。${wantNote}价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
+      plans, alternatives, notes,
+      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买；饮品与甜品每人最多一件。${wantNote}价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
       source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta };
   } catch (e) {
     return error('INTERNAL_ERROR', e.limit ? e.message : `数据或计算异常: ${e.message}`);

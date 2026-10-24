@@ -74,6 +74,7 @@ function resetTweaks() {
   custom.value = []
 }
 
+const notes = computed(() => props.result.request?.notes || [])
 const near = (a, b) => Math.abs((a || 0) - (b || 0)) < 0.01
 
 /** 统一口径：不管有没有手动微调，都按 adjustedItems 逐项重算，再与声明值、约束两头比对 */
@@ -153,6 +154,11 @@ function fmtTime(iso) {
     <div v-if="mock || fallbackReason" class="mock-banner" role="status">
       <template v-if="mock">🧪 <span><strong>内置演示数据</strong>{{ fallbackReason ? ' · ' + fallbackReason : '' }} — 接入后端 /api/plan 后为真实求解结果</span></template>
       <template v-else>ℹ️ <span>{{ fallbackReason }}</span></template>
+    </div>
+
+    <!-- 已记录但无法参与求解的诉求（如「不要冰饮」菜单无温度数据）：如实披露，不静默丢弃 -->
+    <div v-for="n in notes" :key="n.text" class="note-banner" role="status">
+      📌 「{{ n.text }}」<strong>已记录但未参与求解</strong>：{{ n.reason }}
     </div>
 
     <!-- 超标拦截（关键职责）：微调后同样生效 -->
@@ -258,6 +264,11 @@ function fmtTime(iso) {
 .mock-banner {
   display: flex; gap: 8px; align-items: center; padding: 10px 14px; font-size: 13px;
   background: #eef4ff; border: 1px solid #cfe0fb; border-radius: 12px; color: #1c5cab;
+}
+
+.note-banner {
+  padding: 10px 14px; font-size: 13px; line-height: 1.6;
+  background: #fff8e6; border: 1px solid #f0d89a; border-radius: 12px; color: #7a5300;
 }
 
 .alert-over {

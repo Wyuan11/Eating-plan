@@ -11,7 +11,8 @@
       "people": 1,
       "excluded": []
     },
-    "intent": "预算0元"
+    "intent": "预算0元",
+    "notes": []
   },
   "success": false,
   "message": "求解失败",

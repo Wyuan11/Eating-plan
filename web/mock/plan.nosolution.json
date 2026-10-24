@@ -11,7 +11,8 @@
       "people": 3,
       "excluded": []
     },
-    "intent": "三个人吃午饭，预算只有15元"
+    "intent": "三个人吃午饭，预算只有15元",
+    "notes": []
   },
   "success": false,
   "message": "约束过严，无法生成可行方案",
