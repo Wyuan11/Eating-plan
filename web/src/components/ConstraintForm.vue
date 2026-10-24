@@ -11,6 +11,8 @@ const props = defineProps({
 const emit = defineEmits(['submit'])
 
 const query = ref('')
+// 正向诉求（想吃 X × N）：从自然语言抽出，可手动删除；数量会作为硬约束传给求解器
+const wants = ref([])
 const form = reactive({
   budget: 60,
   people: 2,
@@ -37,6 +39,18 @@ const parsePreview = computed(() => {
   return parseQuery(query.value)
 })
 
+watch(
+  () => query.value,
+  (q) => {
+    const p = q.trim() ? parseQuery(q) : null
+    wants.value = p?.wants || []
+  }
+)
+
+function removeWant(i) {
+  wants.value.splice(i, 1)
+}
+
 function toggleExclude(w) {
   const i = form.excluded.indexOf(w)
   if (i >= 0) form.excluded.splice(i, 1)
@@ -58,6 +72,7 @@ function buildConstraints() {
     people: Number(form.people) || 1,
     calorie_limit: form.useCalorie ? Number(form.calorie_limit) || null : null,
     excluded: [...form.excluded],
+    wants: wants.value.map((w) => ({ ...w })),
   }
   // 自然语言覆盖空位（仅演示回填，真正的语义理解在 Skill）
   if (query.value.trim()) {
@@ -138,6 +153,23 @@ function submit() {
         type="number" class="form__num form__num--full"
         min="200" max="3000" step="50" placeholder="如 1200"
       />
+    </section>
+
+    <!-- 正向诉求：数量是硬约束，可手动删除 -->
+    <section v-if="wants.length" class="form__block">
+      <span class="form__label">想吃（数量按需求严格执行）</span>
+      <div class="form__chips">
+        <button
+          v-for="(w, i) in wants"
+          :key="w.keyword"
+          class="chip chip--want"
+          type="button"
+          :title="'点击移除该诉求'"
+          @click="removeWant(i)"
+        >
+          🍽️ {{ w.keyword }} ×{{ w.qty }} ✕
+        </button>
+      </div>
     </section>
 
     <section class="form__block">
@@ -230,6 +262,8 @@ input[type="range"] { flex: 1; accent-color: var(--brand); }
   background: var(--card); font: inherit; font-size: 13px; color: var(--ink-secondary); transition: all .15s;
 }
 .chip.active { border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
+.chip--want { border-color: #f3b6b3; background: #fff5f3; color: var(--ink-primary); font-weight: 600; }
+.chip--want:hover { border-color: var(--brand); }
 
 .form__select {
   width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 10px;

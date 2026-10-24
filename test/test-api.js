@@ -26,12 +26,14 @@ const post = (base, route, payload) => call(base, route, {
   assert.equal(health.status, 200);
   assert.equal(health.body.ok, true);
   assert.equal(health.body.menu.available, true);
-  assert.equal(health.body.menu.count, 124);
+  // 不写死 124：菜单快照会随 fetch-menu.js 刷新，写死必然在某次刷新后假报错。
+  // 这里只断言「菜单可用且非空」，数量一致性交给下面 /api/menu 与 health 的交叉比对。
+  assert.ok(health.body.menu.count > 0);
 
   const menuRes = await call(base, '/api/menu?storeCode=1450713');
   assert.equal(menuRes.status, 200);
   assert.equal(menuRes.body.success, true);
-  assert.equal(menuRes.body.items.length, 124);
+  assert.equal(menuRes.body.items.length, health.body.menu.count);
   assert.equal(menuRes.headers.get('access-control-allow-origin'), '*');
 
   // 三态之一：成功。所有汇总值必须由 items 重算复现。
@@ -67,7 +69,8 @@ const post = (base, route, payload) => call(base, route, {
   assert.equal(noSolution.status, 200);
   assert.equal(noSolution.body.success, false);
   assert.ok(noSolution.body.conflict && noSolution.body.hint);
-  assert.equal(noSolution.body.error, undefined);
+  // 契约里落盘/响应统一把缺失字段写成 null（字段齐全、可预测），所以这里判「没有 error」而不是判 undefined
+  assert.ok(!noSolution.body.error);
 
   // 三态之三：异常/参数错误。
   const bad = await post(base, '/api/plan', { storeCode: '1450713', constraints: { budget: -1, people: 2 } });

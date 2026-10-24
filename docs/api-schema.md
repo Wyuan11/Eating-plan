@@ -1,4 +1,40 @@
-# 麦门智选助手 · 前后端接口契约 Schema v1.1
+# 麦门智选助手 · 前后端接口契约 Schema v1.2
+
+> ⚡ **v1.2 变更（2026-10-24）：一次返回 1～3 个方案**
+>
+> 1. 新增 **`plans: PlanEntry[]`（1～3 个）**：同一组约束下的多套方案，**每套都满足全部硬约束**
+>    （预算 / 热量 / 人数 / 忌口），只是优化目标不同：
+>
+>    | key | label | 说明 |
+>    |---|---|---|
+>    | `balanced` | 均衡推荐 | 预算、热量、营养、多样性综合最优 |
+>    | `cheapest` | 省钱优先 | 总价最低，把预算省下来 |
+>    | `max_value` | 预算吃满 | 预算吃满，份量最足（本次新增策略） |
+>    | `lowest_calorie` | 最低卡 | 总热量最低 |
+>
+> 2. `plans[0]` 即用户/接口指定的 `objective`；其余按「省钱 → 吃满 → 均衡 → 最低卡」补足，
+>    **相同组合会去重**，所以实际可能是 1～3 个（菜单小或约束紧时只有 1～2 个）。
+> 3. 每个 `PlanEntry` 都是**完整方案**：`plan`（合计）+ `items`（完整 PlanItem，含 `code`/`quantity`/`nutrition`）+ `nutrition`，
+>    因此**任意方案都能独立重算校验、独立下单**。
+> 4. **向后兼容**：顶层 `plan/items/nutrition` 仍是主方案（= `plans[0]`）；`alternatives` 仍是「除主方案外的其余方案」。
+>    只认旧字段的前端不受影响；新前端优先读 `plans`。
+> 5. `objective` 别名归一：`lowest_price`/`save` → `cheapest`，`lowcal` → `lowest_calorie`，`value` → `max_value`。
+>    旧文档里写的 `lowest_price` 依然可用。
+> 6. 前端接入：响应先过 `normalizePlan()`，**没有 `plans` 时它会用主方案 + `alternatives` 自动合成**，
+>    所以旧后端 / 旧 mock 也能按多方案渲染。
+>
+> ```jsonc
+> "plans": [
+>   { "key": "balanced", "label": "均衡推荐", "strategy": "预算、热量、营养、多样性综合最优",
+>     "highlight": "预算 / 热量 / 营养 / 多样性 综合最优",
+>     "plan": { "total_price": 59, "total_calorie": 907, "budget_usage": "98%", "saved": 0 },
+>     "items": [ /* 完整 PlanItem[] */ ], "nutrition": { /* 五项营养汇总 */ } },
+>   { "key": "cheapest", "label": "省钱优先", "strategy": "总价最低，把预算省下来",
+>     "highlight": "比主方案省 ¥25.0", "plan": { "total_price": 34, "total_calorie": 738 }, "items": [] },
+>   { "key": "max_value", "label": "预算吃满", "strategy": "预算吃满，份量最足",
+>     "highlight": "预算用到 99%，共 4 件", "plan": { "total_price": 59.5, "total_calorie": 996 }, "items": [] }
+> ]
+> ```
 
 > 前端同学：这份文档 + `web/mock/*.json` + `web/src/types.ts` 三件套到手即可开工，**不需要等后端**。  
 > 所有 mock 数据均由麦当劳官方 MCP 实测返回推导，字段与最终联调完全一致。  

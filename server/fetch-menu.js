@@ -259,9 +259,21 @@ async function main() {
     }
   }
 
+  // 门店名称与地址：query-meals 不返回，从同批次的原始快照里取。
+  // 之前这里只写 { code }，导致 /api/menu 与 /api/plan 的门店名是空的，
+  // 前端顶部「XX餐厅」渲染不出来。取不到就留 null，绝不编造。
+  const storeInfo = { code: storeCode, name: null, address: null };
+  try {
+    const snap = JSON.parse(fs.readFileSync(path.join(ROOT, `data/menu-snapshot-${storeCode}.json`), 'utf8'));
+    storeInfo.name = snap.storeName || null;
+    storeInfo.address = snap.address || null;
+  } catch {
+    /* 快照不存在或解析失败就只留 code，不影响菜单本身 */
+  }
+
   const out = {
     success: true,
-    store: { code: storeCode },
+    store: storeInfo,
     count: items.length,
     items,
     stats: {

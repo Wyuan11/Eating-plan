@@ -44,8 +44,8 @@ export const CALORIE_SOURCE_LABEL = {
  * @property {{storeName:string,storeCode:string,traceId:string,generatedAt:string}} meta
  */
 
-/** 忌口可选项（tag 精确匹配 + 品名包含），与后端 excluded 语义对齐 */
-export const EXCLUDE_OPTIONS = ['辣', '牛肉', '猪肉', '鸡肉', '鱼', '海鲜', '洋葱', '花生', '香菜'];
+/** 忌口可选项（原料词：tag 精确匹配 + 品名包含；品类词「饮料/甜品」：按 category 整类过滤），与后端 excluded 语义对齐 */
+export const EXCLUDE_OPTIONS = ['辣', '牛肉', '猪肉', '鸡肉', '鱼', '海鲜', '洋葱', '花生', '香菜', '饮料', '甜品'];
 
 /** 快捷示例（空态 / 演示用），点击即回填表单 */
 export const QUICK_PRESETS = [

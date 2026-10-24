@@ -1,0 +1,19 @@
+{
+  "name": "mcd-smart-order",
+  "version": "0.2.0",
+  "private": true,
+  "description": "麦门智选助手：Skill 驱动的麦当劳点单求解（控卡 + 省钱双目标）",
+  "scripts": {
+    "api": "node server/api.js",
+    "bridge": "node server/bridge.js",
+    "menu:fetch": "node server/fetch-menu.js --store 1450713",
+    "mock": "node scripts/build_mock.js",
+    "check": "node scripts/demo-check.js",
+    "test": "npm run test:solver && npm run test:api",
+    "test:solver": "node test/test-solver.js data/menu-1450713.json",
+    "test:api": "node test/test-api.js data/menu-1450713.json"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -17,7 +17,9 @@
 | 网关失效降级           | 端口自动发现；不可达时用结构化约束本地直算                                                           |
 | 前端渲染壳            | `npm run build` 39 modules 通过，`vite preview` 访问 200                             |
 | 契约一致性            | Mock 与真实落盘字段零差异（同一段代码生成）                                                        |
-| 演示前一键自检          | `node scripts/demo-check.js` 6/6                                                |
+| 确定性与可解释      | 备选 label「最省钱/最低卡」，未知热量保 `null` 不估算                                              |
+| 演示前一键自检      | `node scripts/demo-check.js` **7/7**（新增后端 API 检查项）                                 |
+| **后端 HTTP 服务** | `server/api.js` 已接入：health/menu/stores/plan 实测通过，plan 与落盘契约零差异               |
 | Git 与协作          | 3 分支、密钥拦截钩子（实测拦住）、bundle 离线协作（往返实测）                                             |
 
 **一句话**：从「用户说话」到「Web 拿到方案」的链路已闭合，Skill 在链路核心位置。
@@ -30,12 +32,12 @@
 
 | # | 缺口                                      | 具体位置                                                                                         | 影响                                                                          |
 | - | --------------------------------------- | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| 1 | **`server/api.js` 未开工**                 | 5 个接口：`GET /api/stores`、`GET /api/menu`、`POST /api/plan`、`POST /api/order`、`GET /api/health` | 前端 Vite 已把 `/api` 代理到 3000，后端不起就一直走 mock                                    |
+| 1 | ~~**`server/api.js` 未开工**~~ | **本轮已接入**：health/menu/stores/plan 实测通过，默认端口改 3000（对齐 Vite 代理），plan 复用 `buildPayload`，与落盘契约零差异 | 前端可脱离 mock 联调；`/api/order` 仍 501（见下条） |
 | 2 | **`create-order` 未接**                   | 到生成支付链接为止，**不真实支付**                                                                          | 演示最后一环「去下单」缺失                                                               |
 | 3 | **`nutritionToMap` 归零缺陷**               | `server/fetch-menu.js:116-121`，`Number(r.energyKcal) \|\| 0`                                 | 官方营养缺字段时会变成「0 大卡/0 钠」的假数据进可信池。当前数据未触发（缺失 0 项），属**潜伏**缺陷；solver v1.1 严格化后会放大 |
 | 4 | **菜单缺详情条目**                             | 分类条目 140 vs 详情映射 125/129                                                                     | 必须跳过无详情的 code，否则产出 `undefined` 单品污染可信池                                      |
-| 5 | **返回结构必须复用 `emit-plan` 的 PlanEnvelope** | 见 `docs/api-schema.md` v1.1 段                                                                | 否则前端要写两套解析，等于契约白收敛                                                          |
-| 6 | **异步语义待定**                              | 若 `/api/plan` 走异步，需约定 `pending`                                                              | 前端我已加 pending 占位分支，等后端定                                                     |
+| 5 | ~~**返回结构必须复用 `emit-plan` 的 PlanEnvelope**~~ | **本轮已解决**：`api.js` 直接调 `buildPayload`，自检里有「字段零差异 + request.constraints 回传」断言 | 前端一套解析吃两个来源，契约不再漂移 |
+| 6 | ~~异步语义待定~~ | **已明确**：`api.js` 为同步求解（HTTP 200 + `status` 三态），`pending` 只在 Skill 文件桥链路（`bridge.js` 404+pending）出现 | 前端按 `status` 分支即可，无需两套逻辑 |
 
 ### 前端
 

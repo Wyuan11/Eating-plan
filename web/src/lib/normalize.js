@@ -41,20 +41,47 @@ function normalizeConstraints(raw) {
   };
 }
 
-function normalizeAlternative(a = {}) {
+/** 策略标签（与 solver 的 OBJECTIVE_LABELS 对齐） */
+const LABELS = { balanced: '均衡推荐', cheapest: '省钱优先', lowest_calorie: '最低卡', max_value: '预算吃满' };
+
+function normalizeItem(it = {}) {
+  return { ...it, quantity: it.quantity || 1, calorie: it.calorie == null ? null : it.calorie };
+}
+
+/** v1.2 单个方案条目：完整 items（可直接下单与校验）+ plan 汇总 + 策略说明 */
+function normalizePlanEntry(p = {}, fallback = {}) {
+  const items = (p.items || []).map(normalizeItem);
+  const plan =
+    p.plan ||
+    (p.total_price != null
+      ? { total_price: p.total_price, total_calorie: p.total_calorie, saved: p.saved ?? 0, original_price: p.original_price ?? p.total_price }
+      : null);
   return {
-    label: a.label || '备选',
-    objective: a.objective || null,
-    total_price: a.total_price ?? 0,
-    total_calorie: a.total_calorie ?? null,
-    // v1 的 alternatives.items 只有 name/price/calorie；
-    // v1.1 是完整 PlanItem（带 code / quantity），可直接下单与校验。
-    items: (a.items || []).map((it) => ({
-      ...it,
-      quantity: it.quantity || 1,
-      calorie: it.calorie == null ? null : it.calorie,
-    })),
+    key: p.key || p.objective || fallback.key || null,
+    objective: p.objective || p.key || null,
+    label: p.label || LABELS[p.objective] || fallback.label || '方案',
+    strategy: p.strategy || null,
+    highlight: p.highlight || null,
+    plan,
+    items,
+    nutrition: p.nutrition || null,
   };
+}
+
+/**
+ * 老形态（顶层 plan + alternatives）补成 plans 数组：
+ * 后端没升级、或读的是旧 mock 时，前端依然能按多方案渲染。
+ */
+function synthesizePlans(raw, mainLabel) {
+  const main = normalizePlanEntry(
+    { plan: raw.plan, items: raw.items, nutrition: raw.nutrition, objective: raw.objective, key: raw.objective },
+    { label: mainLabel, key: raw.objective || 'balanced' }
+  );
+  if (!main.plan) return [];
+  const rest = (raw.alternatives || []).map((a) =>
+    normalizePlanEntry({ ...a, objective: a.objective, plan: a.plan || { total_price: a.total_price, total_calorie: a.total_calorie } })
+  );
+  return [main, ...rest].slice(0, 3);
 }
 
 /**
@@ -74,17 +101,32 @@ export function normalizePlan(raw) {
     elapsedMs: raw.meta?.elapsedMs ?? null,
   };
 
+  const objective = raw.objective || 'balanced';
+  // v1.2：优先用后端给的 plans（1～3 个策略化方案）；没有就由主方案 + alternatives 合成
+  const plans = Array.isArray(raw.plans) && raw.plans.length
+    ? raw.plans.map((p) => normalizePlanEntry(p))
+    : synthesizePlans(raw, LABELS[objective] || '均衡推荐');
+
   return {
     ...raw,
     status,
     success: status === 'success',
     request,
     constraints,
-    objective: raw.objective || 'balanced',
+    objective,
     plan: raw.plan || null,
-    items: (raw.items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })),
+    items: (raw.items || []).map(normalizeItem),
     nutrition: raw.nutrition || null,
-    alternatives: (raw.alternatives || []).map(normalizeAlternative),
+    plans,
+    alternatives: plans.slice(1).map((p) => ({
+      label: p.label,
+      objective: p.objective,
+      strategy: p.strategy,
+      highlight: p.highlight,
+      total_price: p.plan?.total_price ?? 0,
+      total_calorie: p.plan?.total_calorie ?? null,
+      items: p.items,
+    })),
     suggestion: raw.suggestion ?? null,
     reason: raw.reason ?? null,
     hint: raw.hint ?? null,

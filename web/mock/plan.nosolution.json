@@ -4,7 +4,7 @@
   "status": "nosolution",
   "request": {
     "storeCode": "1450713",
-    "storeName": null,
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "constraints": {
       "budget": 15,
       "calorie_limit": null,
@@ -19,6 +19,7 @@
   "plan": null,
   "items": [],
   "nutrition": null,
+  "plans": [],
   "alternatives": [],
   "suggestion": null,
   "reason": "在当前可信单品池内，3 份主食的最低价格为 51 元，最低热量为 975 kcal（两项下界可能来自不同组合）；当前约束下没有可行组合",
@@ -28,8 +29,9 @@
   "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
   "meta": {
     "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-nosolution",
-    "elapsedMs": 3
+    "elapsedMs": 2
   }
 }

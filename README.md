@@ -5,6 +5,11 @@ WayToAGI 1024 AI 切磋大会 · 用餐赛道 / 麦当劳程序员创意开发�
 以 **Skill 为核心**、Web 仅做渲染层的智能点单助手：自然语言 → 约束提取 → 确定性求解 → 方案落盘 → 前端展示。
 主打「控卡 + 省钱」双目标（预算 × 热量 × 忌口 × 人数 四维求解）。
 
+## 我想自己动手跑一遍 👉 看 [`docs/hands-on.md`](docs/hands-on.md)
+
+三条玩法（浏览器点一点 / 命令行全链路 / HTTP 触发 Skill）、success·nosolution·error·pending 四态怎么触发、
+排障表都在里面。一句话版：起 3000 + 8787 + 5173 三个服务，然后打开 http://localhost:5173。
+
 ## 快速开始
 
 ```bash
@@ -21,7 +26,10 @@ node server/verify-mcp.js
 # 4. 生成一份方案并落盘
 node server/emit-plan.js --traceId demo-001 --budget 60 --calorie 1200 --people 2 --exclude 辣
 
-# 5. 启动文件桥，供前端轮询
+# 5. 启动后端 HTTP 服务（前端 Vite 已把 /api 代理到 3000）
+node server/api.js                 # 3000：/api/health /api/menu /api/stores /api/plan
+
+# 6. 启动文件桥，供前端轮询 Skill 落盘的方案（另一个端口，不与上面冲突）
 node server/bridge.js --port 8787
 ```
 
@@ -29,7 +37,7 @@ node server/bridge.js --port 8787
 
 ```bash
 node scripts/build_mock.js          # 重生成全部 Mock（plan 三态由 solver 真实求解）
-node scripts/demo-check.js          # 演示前自检（7 项）
+node scripts/demo-check.js          # 演示前自检（7 项，含后端 API 冒烟）
 node scripts/demo-check.js --online # 额外实测 MCP 连通性（需 Token）
 node scripts/clean-outbox.js        # 清理历史方案文件（默认预演，加 --yes 才删）
 node server/fetch-menu.js --offline # 完全离线重跑营养匹配（菜单与营养都读本地缓存）

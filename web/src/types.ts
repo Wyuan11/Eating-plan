@@ -109,12 +109,32 @@ export interface PlanSummary {
   calorie_usage: string; // "80%"；无热量约束时为 "—"
 }
 
-/** 求解目标：均衡 / 最省钱 / 最低卡。顶层 objective 是当前主方案所用目标。 */
-export type Objective = 'balanced' | 'cheapest' | 'lowest_calorie';
+/**
+ * v1.2 求解目标：均衡 / 省钱优先 / 最低卡 / 预算吃满。
+ * 顶层 objective 是当前主方案（plans[0]）所用目标。
+ */
+export type Objective = 'balanced' | 'cheapest' | 'lowest_calorie' | 'max_value';
+
+/**
+ * v1.2 单个方案：完整可下单、可独立重算校验。
+ * 成功响应里 plans 有 1～3 个，全部满足同一组硬约束，只是优化目标不同。
+ */
+export interface PlanEntry {
+  key: Objective;
+  objective: Objective; // 兼容旧字段，等于 key
+  label: string; // "均衡推荐" / "省钱优先" / "预算吃满" / "最低卡"
+  strategy: string | null; // 一句话说明这套方案在优化什么
+  highlight: string | null; // 与主方案的差异，如 "比主方案省 ¥25.0"
+  plan: PlanSummary;
+  items: PlanItem[]; // 完整条目，含 code/quantity/nutrition
+  nutrition: Nutrition | null;
+}
 
 export interface Alternative {
   objective: Objective;
-  label: string; // "最省钱" / "最低卡"
+  label: string; // "省钱优先" / "预算吃满" / "最低卡"
+  strategy?: string | null;
+  highlight?: string | null;
   total_price: number;
   total_calorie: number;
   items: PlanItem[]; // 完整条目，含 code/quantity，可直接下单与校验
@@ -146,10 +166,12 @@ export interface PlanEnvelope {
   message: string | null;
 
   // success 态
-  plan: PlanSummary | null;
-  items: PlanItem[];
+  plan: PlanSummary | null; // 主方案合计（= plans[0].plan）
+  items: PlanItem[]; // 主方案条目（= plans[0].items）
   nutrition: Nutrition | null;
-  alternatives: Alternative[];
+  /** v1.2：1～3 个策略化方案，全部满足约束；新代码优先读这里 */
+  plans: PlanEntry[];
+  alternatives: Alternative[]; // = plans.slice(1)，兼容旧代码
   suggestion: string | null;
 
   // nosolution 态

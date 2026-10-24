@@ -204,7 +204,7 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 | # | 缺口 | 归属 | 状态 |
 |---|---|---|---|
 | 1 | **Web 模板还没进仓库**（仓库里只有 `mock/` + `types.ts`，无页面/构建配置） | 前端 | 待接入 |
-| 2 | `server/api.js`：`/api/stores`、`/api/menu`、`/api/plan`、`/api/order`、`/api/health` | 后端 A | 未开工 |
+| 2 | ~~`server/api.js` 五接口~~ | 后端 A | **已交付并接入（15:55）**，见第七节；`/api/order` 仍返回 501（依赖第 3 项） |
 | 3 | 下单链路 `create-order` → 支付链接（演示终点，不支付） | 后端 A | 未开工 |
 | 4 | 前端独立重算价格/热量 + 超标标红（Schema 第 6 节，P0） | 前端 | 待实现 |
 | 5 | 前端 5 态状态机 + `pending` 轮询（404+`status=pending` 要继续轮询） | 前端 | 待实现 |
@@ -235,7 +235,50 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 | 剔除模板自带的 `web/src/mock/` | 那是 v1 旧形态（顶层 `constraints`、`success` 布尔），与真实落盘差 9 个字段。改用项目 `web/mock/`，由 solver 真实求解生成 |
 | 新增 `web/src/lib/normalize.js` | `verify.js` 读 `result.success` 和顶层 `constraints`，而真实落盘是 `status` 三态 + `request.constraints`。**不归一化的话校验徽章永远不亮** |
 | `api.js` mock 路径改 `../../mock/` | 对齐项目的 `web/mock/` |
-| `api.js` 返回值过 `normalizePlan()` | 后端 A 的 `api.js` 还没写完、返回形态未定，归一化层同时吃 v1 / v1.1 |
+| `api.js` 返回值过 `normalizePlan()` | 后端 A 的 `api.js` 返回形态未定，归一化层同时吃 v1 / v1.1（现在 `/api/plan` 已是 v1.1 原生形态，归一化是幂等的） |
+
+---
+
+## 八、后端 A 的 `server/api.js` 已接入（2026-10-24 16:00）
+
+实测结果（起临时端口跑完即关）：
+
+```text
+[200] /api/health        ok=true，菜单 125 品，命中真实缓存 data/menu-1450713.json
+[200] /api/menu          125 品
+[200] /api/stores        3 家（items 与 stores 双别名都给了）
+[200] /api/plan 有解      status=success  ¥56.9 / 962kcal  objective=balanced
+[200] /api/plan 无解      status=nosolution  conflict=预算 vs 人数  hint=预算提高到 51 元
+[400] /api/plan 参数错     BAD_REQUEST（budget≤0 / people 越界 / objective 非法 都拦住了）
+[501] /api/order          Day2 再接
+[404] 未知路由
+```
+
+**前端联调现在可以这样起**：
+
+```bash
+node server/api.js        # 3000，Vite 已把 /api 代理过去
+npm run dev               # web/ 下，5173
+```
+
+### 我接入时改了三处（后端 A 请知悉）
+
+| 改动 | 原因 |
+|---|---|
+| 默认端口 8787 → **3000** | 前端 `vite.config.js` 把 `/api` 代理到 3000；原 8787 会与 `bridge.js`（Skill 文件桥）撞端口 |
+| `/api/plan` 改为调用 `emit-plan` 的 `buildPayload()` | 三态判定只有那一处实现，且响应与 `data/skill-outbox/plan-*.json` **逐字段零差异**，前端一套解析吃两个来源。原先直接返回 solver 结果会缺 `status`/`request`/`objective` |
+| `MAX_NODES` 透传给 `buildPayload` | 保留搜索节点上限保护，防止病态输入拖死服务 |
+
+### 顺带修的数据缺陷
+
+`fetch-menu.js` 写缓存时只写 `store: { code }`，门店名和地址丢失（`/api/menu` 返回空名，前端顶部餐厅名渲染不出来）。
+已改为从 `data/menu-snapshot-<code>.json` 取 `storeName`/`address`，离线重跑后已生效：
+`麦当劳上海黄浦华旭国际大厦餐厅 / 南京东路街道西藏中路336号`。取不到时留 `null`，不编造。
+
+### 后端 A 剩余两项（演示前必须确认）
+
+1. `create-order`（到支付链接为止，**不真实支付**）—— `/api/order` 目前 501；
+2. `nutritionToMap` 的 `Number() || 0` 归零缺陷 + 菜单「有 code 无详情」条目跳过——当前数据未触发，但 v1.1 solver 严格化后会整体报 `INTERNAL_ERROR`。
 
 ### 归一化后的约定（组件照这个写）
 
@@ -256,3 +299,38 @@ plan.meta               // { storeCode, traceId, generatedAt, elapsedMs }
 1. 组件全面改用 `normalizePlan` 后的三态（目前部分组件仍读 `success` / `constraints`）。
 2. 接真实数据源：`node server/bridge.js --port 8787`，`/api/plan/<traceId>` 已有 CORS；或等后端 A 的 `api.js`（Vite 已把 `/api` 代理到 3000）。
 3. 轮询：未生成时 404 + `status:"pending"`，1.5s 重试，不弹报错。
+
+---
+
+## 五、v1.2 多方案同步（10-24 16:35 · Skill 侧已实现并落盘）
+
+**一次求解返回 1～3 个方案**，全部满足同一组硬约束（预算/热量/人数/忌口），只是优化目标不同：
+
+| key | label | 含义 |
+|---|---|---|
+| `balanced` | 均衡推荐 | 预算、热量、营养、多样性综合最优 |
+| `cheapest` | 省钱优先 | 总价最低，把预算省下来 |
+| `max_value` | **预算吃满**（新增） | 预算吃满，份量最足 |
+| `lowest_calorie` | 最低卡 | 总热量最低 |
+
+- `plans[0]` = 接口指定的 `objective`；其余按「省钱 → 吃满 → 均衡 → 最低卡」补足，**相同组合去重**，所以是 1～3 个。
+- 每个 `plans[i]` 都是完整方案（plan + items + nutrition），**可独立重算校验、可独立下单**。
+- **向后兼容**：顶层 `plan/items/nutrition` 仍 = 主方案；`alternatives` = `plans.slice(1)`。只认旧字段的代码不受影响。
+- `objective` 别名归一：`lowest_price`/`save`→`cheapest`，`lowcal`→`lowest_calorie`，`value`→`max_value`。
+
+### 给前端（2 处）
+
+1. 响应过 `normalizePlan()` 后读 `result.plans`（1～3 个）渲染方案切换卡；
+   **没有 `plans` 时归一化层会用主方案 + `alternatives` 自动合成**，旧 mock 也能跑。
+2. 切到哪个方案，就对哪个方案的 `items` 独立重算（价格/热量/营养）并做超标拦截——
+   不能只校验主方案。已改：`ResultView.vue` / `PlanTabs.vue` / `normalize.js`。
+
+### 给后端 A
+
+`server/api.js` 的 `/api/plan` 复用了 `emit-plan.buildPayload()`，**`plans` 字段已自动带上，无需改动**。
+若你自行组装响应，请把 solver 返回的 `plans` 原样透传，不要只回 `alternatives`。
+
+### 给产品/答辩
+
+演示口径可以升级为："不满足于给一个答案，而是同时给**省钱版 / 均衡版 / 吃满预算版**三套都合规的方案，
+用户按当下心情选"——且每套都由前端独立重算校验过。
