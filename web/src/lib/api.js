@@ -12,6 +12,7 @@ import { normalizePlan } from './normalize.js';
 
 const STORES_TIMEOUT = 4000;
 const PLAN_TIMEOUT = 30000; // solver 组合枚举可能稍慢
+const ORDER_TIMEOUT = 30000; // 核价 + 下单两步走真实 MCP
 
 async function fetchWithTimeout(url, options = {}, ms) {
   const ctrl = new AbortController();
@@ -99,4 +100,26 @@ export async function submitPlan(payload) {
           : '未连接后端 /api/plan，已切换内置演示数据',
     };
   }
+}
+
+/**
+ * POST /api/order —— 核价 → 创建订单 → 返回支付链接。
+ * 红线：前端只渲染 payH5Url（二维码 + 可点击链接），**绝不自动跳转、绝不自动支付**。
+ * @param {{storeCode:string, beType?:number, orderType?:number,
+ *          items:Array<{code:string,quantity:number}>, mock?:boolean}} payload
+ * @returns {Promise<{status:number, body:Object}>} 非 2xx 也带上 body，靠 error.code 分支处理
+ */
+export async function createOrder(payload) {
+  const res = await fetchWithTimeout(
+    '/api/order',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    ORDER_TIMEOUT
+  );
+  const body = await res.json().catch(() => null);
+  if (!body) throw new Error(`HTTP ${res.status}`);
+  return { status: res.status, body };
 }

@@ -8,6 +8,7 @@ import VerifyBadge from './VerifyBadge.vue'
 import SavingsStrip from './SavingsStrip.vue'
 import PlanTabs from './PlanTabs.vue'
 import MenuPicker from './MenuPicker.vue'
+import OrderPanel from './OrderPanel.vue'
 
 const props = defineProps({
   result: { type: Object, required: true },
@@ -223,6 +224,14 @@ function fmtTime(iso) {
         </div>
       </section>
     </div>
+
+    <!-- 下单：按当前方案（含微调）生成支付链接，只渲染二维码不自动支付 -->
+    <OrderPanel
+      :items="check.items"
+      :store-code="storeCode"
+      :disabled="check.overBudget || check.overCalorie"
+      :disabled-reason="check.overBudget || check.overCalorie ? '方案超出约束，已拦截下单' : null"
+    />
 
     <!-- 建议（主方案的解说；手动微调后口径已变，隐藏） -->
     <div v-if="isMain && !customized && result.suggestion" class="result__suggestion">
