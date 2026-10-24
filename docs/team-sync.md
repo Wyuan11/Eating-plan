@@ -204,7 +204,7 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 | # | 缺口 | 归属 | 状态 |
 |---|---|---|---|
 | 1 | **Web 模板还没进仓库**（仓库里只有 `mock/` + `types.ts`，无页面/构建配置） | 前端 | 待接入 |
-| 2 | `server/api.js`：`/api/stores`、`/api/menu`、`/api/plan`、`/api/order`、`/api/health` | 后端 A | 未开工 |
+| 2 | ~~`server/api.js` 五接口~~ | 后端 A | **已交付并接入（15:55）**，见第七节；`/api/order` 仍返回 501（依赖第 3 项） |
 | 3 | 下单链路 `create-order` → 支付链接（演示终点，不支付） | 后端 A | 未开工 |
 | 4 | 前端独立重算价格/热量 + 超标标红（Schema 第 6 节，P0） | 前端 | 待实现 |
 | 5 | 前端 5 态状态机 + `pending` 轮询（404+`status=pending` 要继续轮询） | 前端 | 待实现 |
@@ -235,7 +235,50 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 | 剔除模板自带的 `web/src/mock/` | 那是 v1 旧形态（顶层 `constraints`、`success` 布尔），与真实落盘差 9 个字段。改用项目 `web/mock/`，由 solver 真实求解生成 |
 | 新增 `web/src/lib/normalize.js` | `verify.js` 读 `result.success` 和顶层 `constraints`，而真实落盘是 `status` 三态 + `request.constraints`。**不归一化的话校验徽章永远不亮** |
 | `api.js` mock 路径改 `../../mock/` | 对齐项目的 `web/mock/` |
-| `api.js` 返回值过 `normalizePlan()` | 后端 A 的 `api.js` 还没写完、返回形态未定，归一化层同时吃 v1 / v1.1 |
+| `api.js` 返回值过 `normalizePlan()` | 后端 A 的 `api.js` 返回形态未定，归一化层同时吃 v1 / v1.1（现在 `/api/plan` 已是 v1.1 原生形态，归一化是幂等的） |
+
+---
+
+## 八、后端 A 的 `server/api.js` 已接入（2026-10-24 16:00）
+
+实测结果（起临时端口跑完即关）：
+
+```text
+[200] /api/health        ok=true，菜单 125 品，命中真实缓存 data/menu-1450713.json
+[200] /api/menu          125 品
+[200] /api/stores        3 家（items 与 stores 双别名都给了）
+[200] /api/plan 有解      status=success  ¥56.9 / 962kcal  objective=balanced
+[200] /api/plan 无解      status=nosolution  conflict=预算 vs 人数  hint=预算提高到 51 元
+[400] /api/plan 参数错     BAD_REQUEST（budget≤0 / people 越界 / objective 非法 都拦住了）
+[501] /api/order          Day2 再接
+[404] 未知路由
+```
+
+**前端联调现在可以这样起**：
+
+```bash
+node server/api.js        # 3000，Vite 已把 /api 代理过去
+npm run dev               # web/ 下，5173
+```
+
+### 我接入时改了三处（后端 A 请知悉）
+
+| 改动 | 原因 |
+|---|---|
+| 默认端口 8787 → **3000** | 前端 `vite.config.js` 把 `/api` 代理到 3000；原 8787 会与 `bridge.js`（Skill 文件桥）撞端口 |
+| `/api/plan` 改为调用 `emit-plan` 的 `buildPayload()` | 三态判定只有那一处实现，且响应与 `data/skill-outbox/plan-*.json` **逐字段零差异**，前端一套解析吃两个来源。原先直接返回 solver 结果会缺 `status`/`request`/`objective` |
+| `MAX_NODES` 透传给 `buildPayload` | 保留搜索节点上限保护，防止病态输入拖死服务 |
+
+### 顺带修的数据缺陷
+
+`fetch-menu.js` 写缓存时只写 `store: { code }`，门店名和地址丢失（`/api/menu` 返回空名，前端顶部餐厅名渲染不出来）。
+已改为从 `data/menu-snapshot-<code>.json` 取 `storeName`/`address`，离线重跑后已生效：
+`麦当劳上海黄浦华旭国际大厦餐厅 / 南京东路街道西藏中路336号`。取不到时留 `null`，不编造。
+
+### 后端 A 剩余两项（演示前必须确认）
+
+1. `create-order`（到支付链接为止，**不真实支付**）—— `/api/order` 目前 501；
+2. `nutritionToMap` 的 `Number() || 0` 归零缺陷 + 菜单「有 code 无详情」条目跳过——当前数据未触发，但 v1.1 solver 严格化后会整体报 `INTERNAL_ERROR`。
 
 ### 归一化后的约定（组件照这个写）
 

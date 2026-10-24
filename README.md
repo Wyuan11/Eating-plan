@@ -21,7 +21,10 @@ node server/verify-mcp.js
 # 4. 生成一份方案并落盘
 node server/emit-plan.js --traceId demo-001 --budget 60 --calorie 1200 --people 2 --exclude 辣
 
-# 5. 启动文件桥，供前端轮询
+# 5. 启动后端 HTTP 服务（前端 Vite 已把 /api 代理到 3000）
+node server/api.js                 # 3000：/api/health /api/menu /api/stores /api/plan
+
+# 6. 启动文件桥，供前端轮询 Skill 落盘的方案（另一个端口，不与上面冲突）
 node server/bridge.js --port 8787
 ```
 
@@ -29,7 +32,7 @@ node server/bridge.js --port 8787
 
 ```bash
 node scripts/build_mock.js          # 重生成全部 Mock（plan 三态由 solver 真实求解）
-node scripts/demo-check.js          # 演示前自检（7 项）
+node scripts/demo-check.js          # 演示前自检（7 项，含后端 API 冒烟）
 node scripts/demo-check.js --online # 额外实测 MCP 连通性（需 Token）
 node scripts/clean-outbox.js        # 清理历史方案文件（默认预演，加 --yes 才删）
 node server/fetch-menu.js --offline # 完全离线重跑营养匹配（菜单与营养都读本地缓存）

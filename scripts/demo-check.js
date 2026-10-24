@@ -53,6 +53,32 @@ function get(url) {
   });
 }
 
+/** POST JSON。自检里只用来打本地服务，超时 5 秒足够。 */
+function post(url, payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const u = new URL(url);
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode, body }));
+      },
+    );
+    req.on('error', reject);
+    req.setTimeout(5000, () => reject(new Error('请求超时')));
+    req.write(data);
+    req.end();
+  });
+}
+
 async function main() {
   console.log('=== 麦门智选助手 · 演示前自检 ===\n');
 
@@ -68,7 +94,7 @@ async function main() {
     const need = [
       'server/mcp-client.js', 'server/fetch-menu.js', 'server/solver.js',
       'server/emit-plan.js', 'server/outbox.js', 'server/bridge.js',
-      'server/trigger-skill.js', 'server/verify-mcp.js',
+      'server/trigger-skill.js', 'server/verify-mcp.js', 'server/api.js',
       'web/mock/menu.json', 'web/mock/plan.success.json',
       'web/mock/plan.nosolution.json', 'web/mock/plan.error.json',
       'web/src/types.ts',
@@ -144,7 +170,38 @@ async function main() {
     }
   });
 
-  // 7. MCP 连通性（可选，需要 Token）
+  // 7. 后端 API（server/api.js，前端 /api 代理指向 3000）
+  await checkAsync('后端 API 可用', async () => {
+    const { start } = require(path.join(ROOT, 'server/api.js'));
+    const server = await start(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const health = await get(`${base}/api/health`);
+      assert(health.status === 200, `/api/health 返回 ${health.status}`);
+      const r = await post(`${base}/api/plan`, {
+        storeCode: '1450713',
+        constraints: { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] },
+      });
+      assert(r.status === 200, `/api/plan 返回 ${r.status}`);
+      const body = JSON.parse(r.body);
+      assert(body.status === 'success', `/api/plan 应为 success，实际 ${body.status}`);
+      // 与 Skill 落盘必须是同一套结构，前端才能只写一份解析
+      const { buildPayload } = require(path.join(ROOT, 'server/emit-plan'));
+      const real = buildPayload({ traceId: 'check-api', constraints: { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] } });
+      const diff = Object.keys(real).filter((k) => !(k in body));
+      assert(diff.length === 0, `/api/plan 响应缺少字段：${diff.join(',')}`);
+      assert(body.request?.constraints?.budget === 60, 'request.constraints 未回传，前端约束面板会空');
+      const no = JSON.parse((await post(`${base}/api/plan`, { constraints: { budget: 15, people: 3 } })).body);
+      assert(no.status === 'nosolution', `无解场景 status 应为 nosolution，实际 ${no.status}`);
+      const bad = await post(`${base}/api/plan`, { constraints: { budget: 0, people: 1 } });
+      assert(bad.status === 400, `参数错误应返回 400，实际 ${bad.status}`);
+      return `¥${body.plan.total_price}/${body.plan.total_calorie}kcal，三态 + 契约一致`;
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  // 8. MCP 连通性（可选，需要 Token）
   if (ONLINE) {
     await checkAsync('MCP 连通性', async () => {
       assert(process.env.MCD_MCP_TOKEN, '未设置 MCD_MCP_TOKEN');
@@ -167,7 +224,9 @@ async function main() {
     console.log('\n结论：暂不具备演示条件，先修上面几项。');
     process.exit(1);
   }
-  console.log('结论：可以演示。启动 `node server/bridge.js --port 8787` 供前端取数据。');
+  console.log('结论：可以演示。');
+  console.log('  后端服务（前端 /api 代理）：node server/api.js        # 3000');
+  console.log('  Skill 方案文件桥（Web 轮询）：node server/bridge.js  # 8787');
 }
 
 main().catch((e) => {

@@ -49,30 +49,34 @@ function buildPayload(opts) {
     intent = '',
     constraints = { budget: 60, calorie_limit: null, people: 1, excluded: [] },
     objective = 'balanced',
+    // 调用方（如 server/api.js）已经读过菜单时直接传进来，避免重复读文件
+    menu: injectedMenu = null,
   } = opts || {};
   const menuFile = resolveMenuFile(storeCode, opts.menuFile);
 
-  let menu;
-  try {
-    menu = JSON.parse(fs.readFileSync(path.resolve(ROOT, menuFile), 'utf8'));
-  } catch (e) {
-    return {
-      traceId,
-      createdAt: new Date().toISOString(),
-      status: 'error',
-      request: { storeCode, storeName: null, constraints, intent },
-      success: false,
-      message: `菜单读取失败: ${e.message}`,
-      error: { code: 'INTERNAL_ERROR', detail: `菜单读取失败: ${e.message}`, retryable: false },
-      items: [],
-      alternatives: [],
-      plan: null,
-      nutrition: null,
-    };
+  let menu = injectedMenu;
+  if (!menu) {
+    try {
+      menu = JSON.parse(fs.readFileSync(path.resolve(ROOT, menuFile), 'utf8'));
+    } catch (e) {
+      return {
+        traceId,
+        createdAt: new Date().toISOString(),
+        status: 'error',
+        request: { storeCode, storeName: null, constraints, intent },
+        success: false,
+        message: `菜单读取失败: ${e.message}`,
+        error: { code: 'INTERNAL_ERROR', detail: `菜单读取失败: ${e.message}`, retryable: false },
+        items: [],
+        alternatives: [],
+        plan: null,
+        nutrition: null,
+      };
+    }
   }
 
   const t0 = Date.now();
-  const res = solve(menu.items, { ...constraints, storeCode, storeName: menu.store?.name, objective });
+  const res = solve(menu.items, { ...constraints, storeCode, storeName: menu.store?.name, objective }, opts.options || {});
   if (res.meta) {
     res.meta.elapsedMs = Date.now() - t0;
     // solver 自己会生成一个 solver-<ts> 的 traceId，和外层落盘用的不是同一个。
