@@ -49,6 +49,9 @@ function buildPayload(opts) {
     intent = '',
     constraints = { budget: 60, calorie_limit: null, people: 1, excluded: [] },
     objective = 'balanced',
+    // 用户提到、但当前数据无法参与求解的偏好（如「中辣」）。
+    // 必须显式回传并说明原因，不能假装已生效，也不能悄悄丢弃。
+    notes = [],
     // 调用方（如 server/api.js）已经读过菜单时直接传进来，避免重复读文件
     menu: injectedMenu = null,
   } = opts || {};
@@ -63,7 +66,7 @@ function buildPayload(opts) {
         traceId,
         createdAt: new Date().toISOString(),
         status: 'error',
-        request: { storeCode, storeName: null, constraints, intent },
+        request: { storeCode, storeName: null, constraints, intent, notes },
         success: false,
         message: `菜单读取失败: ${e.message}`,
         error: { code: 'INTERNAL_ERROR', detail: `菜单读取失败: ${e.message}`, retryable: false },
@@ -99,7 +102,7 @@ function buildPayload(opts) {
     traceId,
     createdAt: new Date().toISOString(),
     status,
-    request: { storeCode, storeName: menu.store?.name || null, constraints, intent },
+    request: { storeCode, storeName: menu.store?.name || null, constraints, intent, notes },
     success: !!res.success,
     message: res.message ?? null,
     objective: res.objective ?? null,
@@ -133,6 +136,7 @@ function emit(opts) {
     console.log(`说明：${payload.error?.detail}`);
   } else if (payload.status === 'success') {
     console.log(`[OK] traceId=${payload.traceId}`);
+    for (const n of payload.request.notes || []) console.log(`[注意] 「${n.text}」已记录但未参与求解：${n.reason}`);
     console.log(`共 ${payload.plans.length} 个方案（均满足约束，按策略区分）：`);
     payload.plans.forEach((p, i) => {
       console.log(
@@ -165,12 +169,19 @@ function main() {
     return { keyword: m[1].trim(), qty: Number(m[2] || 1) };
   }) : [];
 
+  // --note "中辣|菜单无辣度分级数据，该偏好已记录但未参与求解"
+  const notes = arg('note', '') ? arg('note').split(/[;；]+/).filter(Boolean).map(s => {
+    const [text, reason] = s.split('|').map(x => x.trim());
+    return { text, reason: reason || '当前菜单数据无法参与求解，已记录但未生效' };
+  }) : [];
+
   const { payload } = emit({
     traceId: arg('traceId', null) || `t${Date.now()}`,
     menuFile: arg('menu', null), // 不传则自动选真实门店缓存
     storeCode: arg('store', '1450713'),
     intent: arg('intent', ''),
     objective: arg('objective', 'balanced'),
+    notes,
     constraints: {
       budget: Number(arg('budget', 60)),
       // 关键：没传 --calorie 就是 null，绝不替用户编造热量上限
