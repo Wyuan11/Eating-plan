@@ -1,0 +1,102 @@
+/**
+ * 契约归一化 —— 前端拿到任何形态的方案，都先过这一层再交给组件渲染。
+ *
+ * 为什么要这一层：
+ * 1. 后端 A 的 server/api.js 还没写完，它最终返回什么形态未定；
+ *    而 Skill 侧真实落盘（emit-plan.js）已经是 v1.1 形态。
+ * 2. 队友最初的内置 mock 是 v1 旧形态（顶层 constraints、success 布尔）。
+ * 没有归一化，同一份组件代码要同时认识两套字段，改一处漏一处。
+ *
+ * 归一化的结果（canonical v1.1）同时保留两套键，旧组件代码不用改：
+ *   status              'success' | 'nosolution' | 'error'  ← 三态唯一判据
+ *   success             布尔，等于 status === 'success'      ← 兼容旧代码
+ *   request.constraints 约束（权威位置）
+ *   constraints         同一个对象引用                      ← 兼容旧代码
+ *   objective           'balanced' | 'lowest_price' | 'lowest_calorie'
+ *   meta                { storeCode, traceId, generatedAt, elapsedMs }
+ */
+
+const EMPTY_CONSTRAINTS = { budget: null, calorie_limit: null, people: 1, excluded: [] };
+
+/** 推断三态：优先信 status，没有就按 success / error 反推 */
+function inferStatus(raw) {
+  // 后端可能返回 'pending'（异步未落盘）等状态，一律原样保留，
+  // 否则会被误判成「无解」，前端就停止轮询、给用户弹错误。
+  if (typeof raw.status === 'string' && raw.status) return raw.status;
+  if (raw.error) return 'error';
+  if (raw.success === false) return 'nosolution';
+  if (raw.success === true) return 'success';
+  // 既没有 status 也没有 success：有方案就是成功，否则无解
+  return raw.plan ? 'success' : 'nosolution';
+}
+
+function normalizeConstraints(raw) {
+  const c = raw.request?.constraints || raw.constraints || {};
+  return {
+    budget: c.budget == null ? null : Number(c.budget),
+    // 关键：没给热量上限就是 null，绝不在这里替用户编造一个值
+    calorie_limit: c.calorie_limit == null ? null : Number(c.calorie_limit),
+    people: Number(c.people) || 1,
+    excluded: Array.isArray(c.excluded) ? c.excluded : [],
+  };
+}
+
+function normalizeAlternative(a = {}) {
+  return {
+    label: a.label || '备选',
+    objective: a.objective || null,
+    total_price: a.total_price ?? 0,
+    total_calorie: a.total_calorie ?? null,
+    // v1 的 alternatives.items 只有 name/price/calorie；
+    // v1.1 是完整 PlanItem（带 code / quantity），可直接下单与校验。
+    items: (a.items || []).map((it) => ({
+      ...it,
+      quantity: it.quantity || 1,
+      calorie: it.calorie == null ? null : it.calorie,
+    })),
+  };
+}
+
+/**
+ * @param {Object} raw 任意形态的方案（v1 旧 mock / v1.1 真实落盘 / 后端 API）
+ * @returns {Object|null} canonical v1.1
+ */
+export function normalizePlan(raw) {
+  if (!raw || typeof raw !== 'object') return null;
+
+  const status = inferStatus(raw);
+  const constraints = normalizeConstraints(raw);
+  const request = { ...(raw.request || {}), constraints };
+  const meta = {
+    storeCode: raw.meta?.storeCode || raw.request?.storeCode || null,
+    traceId: raw.meta?.traceId || raw.traceId || null,
+    generatedAt: raw.meta?.generatedAt || raw.createdAt || null,
+    elapsedMs: raw.meta?.elapsedMs ?? null,
+  };
+
+  return {
+    ...raw,
+    status,
+    success: status === 'success',
+    request,
+    constraints,
+    objective: raw.objective || 'balanced',
+    plan: raw.plan || null,
+    items: (raw.items || []).map((it) => ({ ...it, quantity: it.quantity || 1 })),
+    nutrition: raw.nutrition || null,
+    alternatives: (raw.alternatives || []).map(normalizeAlternative),
+    suggestion: raw.suggestion ?? null,
+    reason: raw.reason ?? null,
+    hint: raw.hint ?? null,
+    conflict: raw.conflict ?? null,
+    source_note: raw.source_note ?? null,
+    error: raw.error || null,
+    meta,
+  };
+}
+
+/** 三态判据（组件请一律用这三个，不要直接读 success） */
+export const isSuccess = (p) => p?.status === 'success';
+export const isNoSolution = (p) => p?.status === 'nosolution';
+export const isError = (p) => p?.status === 'error';
+export { EMPTY_CONSTRAINTS };
