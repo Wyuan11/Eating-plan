@@ -67,10 +67,11 @@ function buildPayload(opts) {
         success: false,
         message: `菜单读取失败: ${e.message}`,
         error: { code: 'INTERNAL_ERROR', detail: `菜单读取失败: ${e.message}`, retryable: false },
-        items: [],
-        alternatives: [],
-        plan: null,
-        nutrition: null,
+    items: [],
+    alternatives: [],
+    plans: [],
+    plan: null,
+    nutrition: null,
       };
     }
   }
@@ -105,6 +106,9 @@ function buildPayload(opts) {
     plan: res.plan ?? null,
     items: res.items ?? [],
     nutrition: res.nutrition ?? null,
+    // v1.2 多方案：1～3 个策略化方案（省钱优先 / 均衡推荐 / 预算吃满 / 最低卡），
+    // 每个都是完整可下单、可独立校验的方案，plans[0] 即顶层主方案。
+    plans: res.plans ?? [],
     alternatives: res.alternatives ?? [],
     suggestion: res.suggestion ?? null,
     reason: res.reason ?? null,
@@ -129,8 +133,13 @@ function emit(opts) {
     console.log(`说明：${payload.error?.detail}`);
   } else if (payload.status === 'success') {
     console.log(`[OK] traceId=${payload.traceId}`);
-    console.log(`方案：${payload.items.map((i) => `${i.name}×${i.quantity}`).join(' + ')}`);
-    console.log(`合计 ¥${payload.plan.total_price} / ${payload.plan.total_calorie} kcal`);
+    console.log(`共 ${payload.plans.length} 个方案（均满足约束，按策略区分）：`);
+    payload.plans.forEach((p, i) => {
+      console.log(
+        `  ${i + 1}. ${p.label}（${p.strategy}） ¥${p.plan.total_price} / ${p.plan.total_calorie} kcal · ${p.highlight}`
+      );
+      console.log(`     ${p.items.map((it) => `${it.name}×${it.quantity}`).join(' + ')}`);
+    });
   } else {
     console.log(`[NO-SOLUTION] traceId=${payload.traceId}`);
     console.log(`原因：${payload.reason}`);

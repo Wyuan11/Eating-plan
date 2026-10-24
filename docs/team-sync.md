@@ -299,3 +299,38 @@ plan.meta               // { storeCode, traceId, generatedAt, elapsedMs }
 1. 组件全面改用 `normalizePlan` 后的三态（目前部分组件仍读 `success` / `constraints`）。
 2. 接真实数据源：`node server/bridge.js --port 8787`，`/api/plan/<traceId>` 已有 CORS；或等后端 A 的 `api.js`（Vite 已把 `/api` 代理到 3000）。
 3. 轮询：未生成时 404 + `status:"pending"`，1.5s 重试，不弹报错。
+
+---
+
+## 五、v1.2 多方案同步（10-24 16:35 · Skill 侧已实现并落盘）
+
+**一次求解返回 1～3 个方案**，全部满足同一组硬约束（预算/热量/人数/忌口），只是优化目标不同：
+
+| key | label | 含义 |
+|---|---|---|
+| `balanced` | 均衡推荐 | 预算、热量、营养、多样性综合最优 |
+| `cheapest` | 省钱优先 | 总价最低，把预算省下来 |
+| `max_value` | **预算吃满**（新增） | 预算吃满，份量最足 |
+| `lowest_calorie` | 最低卡 | 总热量最低 |
+
+- `plans[0]` = 接口指定的 `objective`；其余按「省钱 → 吃满 → 均衡 → 最低卡」补足，**相同组合去重**，所以是 1～3 个。
+- 每个 `plans[i]` 都是完整方案（plan + items + nutrition），**可独立重算校验、可独立下单**。
+- **向后兼容**：顶层 `plan/items/nutrition` 仍 = 主方案；`alternatives` = `plans.slice(1)`。只认旧字段的代码不受影响。
+- `objective` 别名归一：`lowest_price`/`save`→`cheapest`，`lowcal`→`lowest_calorie`，`value`→`max_value`。
+
+### 给前端（2 处）
+
+1. 响应过 `normalizePlan()` 后读 `result.plans`（1～3 个）渲染方案切换卡；
+   **没有 `plans` 时归一化层会用主方案 + `alternatives` 自动合成**，旧 mock 也能跑。
+2. 切到哪个方案，就对哪个方案的 `items` 独立重算（价格/热量/营养）并做超标拦截——
+   不能只校验主方案。已改：`ResultView.vue` / `PlanTabs.vue` / `normalize.js`。
+
+### 给后端 A
+
+`server/api.js` 的 `/api/plan` 复用了 `emit-plan.buildPayload()`，**`plans` 字段已自动带上，无需改动**。
+若你自行组装响应，请把 solver 返回的 `plans` 原样透传，不要只回 `alternatives`。
+
+### 给产品/答辩
+
+演示口径可以升级为："不满足于给一个答案，而是同时给**省钱版 / 均衡版 / 吃满预算版**三套都合规的方案，
+用户按当下心情选"——且每套都由前端独立重算校验过。

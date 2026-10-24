@@ -4,8 +4,8 @@
  *   node scripts/demo-check.js            # 离线自检（不需要 Token）
  *   node scripts/demo-check.js --online   # 额外实测 MCP 连通性（需要 MCD_MCP_TOKEN）
  *
- * 检查项：Node 版本 / 关键文件 / 菜单健康 / solver 三态 / Mock 与真实结构一致 /
- *         文件桥 HTTP 接口 / （可选）MCP 连通性
+ * 检查项：Node 版本 / 关键文件 / 菜单健康 / solver 三态 / 多方案 1~3 个 /
+ *         Mock 与真实结构一致 / 文件桥 HTTP 接口 / 后端 API / （可选）MCP 连通性
  * 退出码 0 = 可演示，1 = 有阻塞项。
  */
 
@@ -130,6 +130,25 @@ async function main() {
     const err = solve(menu.items, { budget: 0, people: 1, storeCode: '1450713' });
     assert(!err.success && err.error, '参数错误场景未返回 error');
     return `有解 ¥${ok.plan.total_price}/${ok.plan.total_calorie}kcal`;
+  });
+
+  // 4b. 多方案（v1.2）：1～3 个策略化方案，全部满足同一组约束且互不相同
+  check('多方案可用（1~3 个）', () => {
+    const { solve } = require(path.join(ROOT, 'server/solver'));
+    const c = { budget: 60, calorie_limit: 1400, people: 2, excluded: ['饮料'], storeCode: '1450713' };
+    const r = solve(menu.items, c);
+    assert(r.success && Array.isArray(r.plans), '成功态必须返回 plans 数组');
+    assert(r.plans.length >= 1 && r.plans.length <= 3, `方案数量应为 1~3，实际 ${r.plans.length}`);
+    const sig = new Set();
+    for (const p of r.plans) {
+      assert(p.plan && Array.isArray(p.items) && p.items.length, `方案 ${p.key} 缺 items`);
+      assert(p.plan.total_price <= c.budget + 1e-9, `${p.label} 超预算：${p.plan.total_price} > ${c.budget}`);
+      if (c.calorie_limit != null) assert(p.plan.total_calorie <= c.calorie_limit, `${p.label} 超热量上限`);
+      assert(p.label && p.strategy, `方案 ${p.key} 缺 label/strategy`);
+      sig.add(p.items.map((i) => `${i.code}x${i.quantity}`).join('|'));
+    }
+    assert(sig.size === r.plans.length, '存在重复方案（应去重）');
+    return r.plans.map((p) => `${p.label} ¥${p.plan.total_price}`).join(' / ');
   });
 
   // 5. Mock 与真实落盘结构一致（漂移会让前端接上就崩）

@@ -19,6 +19,7 @@
   "plan": null,
   "items": [],
   "nutrition": null,
+  "plans": [],
   "alternatives": [],
   "suggestion": null,
   "reason": "在当前可信单品池内，3 份主食的最低价格为 51 元，最低热量为 975 kcal（两项下界可能来自不同组合）；当前约束下没有可行组合",
