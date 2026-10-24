@@ -25,6 +25,16 @@ node server/emit-plan.js --traceId demo-001 --budget 60 --calorie 1200 --people 
 node server/bridge.js --port 8787
 ```
 
+## 常用维护命令
+
+```bash
+node scripts/build_mock.js          # 重生成全部 Mock（plan 三态由 solver 真实求解）
+node scripts/demo-check.js          # 演示前自检（7 项）
+node scripts/demo-check.js --online # 额外实测 MCP 连通性（需 Token）
+node scripts/clean-outbox.js        # 清理历史方案文件（默认预演，加 --yes 才删）
+node server/fetch-menu.js --offline # 完全离线重跑营养匹配（菜单与营养都读本地缓存）
+```
+
 ## 目录
 
 | 路径 | 说明 |

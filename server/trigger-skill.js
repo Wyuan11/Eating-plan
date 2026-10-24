@@ -21,11 +21,46 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readPlan } = require('./outbox');
+const os = require('os');
+const { readPlan, writePlan } = require('./outbox');
+const { buildPayload } = require('./emit-plan');
 
-const GATEWAY = process.env.CODEBUDDY_GATEWAY_URL || 'http://127.0.0.1:63698';
+const ROOT = path.join(__dirname, '..');
 const TOKEN = process.env.CODEBUDDY_GATEWAY_PASSWORD;
-const OUTBOX = path.join(__dirname, '..', 'data', 'skill-outbox');
+
+/**
+ * 网关地址解析：环境变量 → 本机会话文件 → 兜底默认值
+ *
+ * 端口由 WorkBuddy 主进程按会话分配（本次是 63698，重启后会变），写死会导致
+ * WorkBuddy 重启后脚本全部失效。会话文件里存了真实 endpoint，自动读取最稳。
+ */
+function resolveGateway() {
+  if (process.env.CODEBUDDY_GATEWAY_URL) {
+    return { url: process.env.CODEBUDDY_GATEWAY_URL, from: '环境变量 CODEBUDDY_GATEWAY_URL' };
+  }
+  const dir = path.join(os.homedir(), '.workbuddy', 'sessions');
+  try {
+    let best = null;
+    for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json'))) {
+      const j = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (!j.endpoint) continue;
+      // 优先取 cwd 与本项目一致的会话；其次取心跳最新的
+      const sameCwd = j.cwd && path.resolve(j.cwd) === path.resolve(ROOT);
+      const score = (sameCwd ? 1e15 : 0) + Number(j.lastHeartbeat || 0);
+      if (!best || score > best.score) {
+        best = { score, url: j.endpoint, from: `会话文件 ${f}${sameCwd ? '（同项目）' : ''}` };
+      }
+    }
+    if (best) return { url: best.url, from: best.from };
+  } catch {
+    /* 读不到就走兜底 */
+  }
+  return { url: 'http://127.0.0.1:63698', from: '兜底默认值' };
+}
+
+const GATEWAY_INFO = resolveGateway();
+const GATEWAY = GATEWAY_INFO.url;
+const OUTBOX = path.join(ROOT, 'data', 'skill-outbox');
 
 function arg(k, d) {
   const i = process.argv.indexOf(`--${k}`);
@@ -91,6 +126,62 @@ async function pollOutbox(traceId, deadline) {
   return null;
 }
 
+/** 从 CLI 解析结构化约束；只有全部给出时才能走本地降级（本地没有语义解析能力） */
+function structuredConstraints() {
+  const budget = arg('budget', null);
+  if (budget == null) return null;
+  const calorie = arg('calorie', null);
+  const excluded = arg('exclude', '') ? arg('exclude').split(/[,，\s]+/).filter(Boolean) : [];
+  return {
+    budget: Number(budget),
+    calorie_limit: calorie == null || calorie === '' ? null : Number(calorie),
+    people: Number(arg('people', 1)),
+    excluded,
+  };
+}
+
+/**
+ * 降级：网关不可用或 Skill 未按时落盘时，本地直算并落盘。
+ * 代价是跳过 Skill 的语义理解（所以必须自带结构化约束），好处是演示不会卡死在轮询上。
+ */
+function fallbackLocal(traceId, text, constraints, reason) {
+  if (!constraints) {
+    console.error(
+      `[FATAL] ${reason}\n` +
+        `降级需要结构化约束，请补 --budget [--calorie N] [--people N] [--exclude 辣,牛肉]，例如：\n` +
+        `  node server/trigger-skill.js --text "..." --traceId web-001 --budget 60 --calorie 1200 --people 2 --exclude 辣`,
+    );
+    return null;
+  }
+  console.warn(`[FALLBACK] ${reason} → 本地直算落盘（跳过 Skill 语义层，方案仍然有效）`);
+  const payload = buildPayload({
+    traceId,
+    constraints,
+    intent: text,
+    objective: arg('objective', 'balanced'),
+  });
+  writePlan(traceId, payload);
+  return payload;
+}
+
+function printPlan(plan) {
+  const status = plan.status;
+  console.log(`[DONE] traceId=${plan.traceId} status=${status}`);
+  if (status === 'success') {
+    console.log(`方案：${(plan.items || []).map((i) => `${i.name}×${i.quantity}`).join(' + ')}`);
+    console.log(`合计 ¥${plan.plan.total_price} / ${plan.plan.total_calorie} kcal`);
+    return;
+  }
+  if (status === 'error') {
+    // error 态没有 reason/hint，只有 error.code + error.detail，别打印 null
+    console.log(`错误码：${plan.error?.code ?? 'UNKNOWN'}`);
+    console.log(`说明：${plan.error?.detail ?? plan.message ?? '未知错误'}`);
+    return;
+  }
+  console.log(`原因：${plan.reason ?? plan.message ?? '约束过严'}`);
+  console.log(`建议：${plan.hint ?? '放宽预算或人数'}`);
+}
+
 async function main() {
   const text = arg('text', null);
   if (!text) {
@@ -101,13 +192,24 @@ async function main() {
   const noWait = process.argv.includes('--no-wait');
   const timeoutSec = Number(arg('timeout', 180));
   const deadline = Date.now() + timeoutSec * 1000;
+  const constraints = structuredConstraints();
 
   // 把 traceId 写进消息，Skill 侧按约定用同名 traceId 落盘
   const fullText = `${text}\n【系统约定】traceId=${traceId}，请用麦门智选助手处理，方案以该 traceId 落盘，无需追问。`;
 
+  console.log(`网关：${GATEWAY}（来源：${GATEWAY_INFO.from}）`);
+
   const t0 = Date.now();
-  const run = await postRun(fullText);
-  console.log(`[OK] 已受理 runId=${run.runId} status=${run.status} (${Date.now() - t0}ms)`);
+  let run;
+  try {
+    run = await postRun(fullText);
+    console.log(`[OK] 已受理 runId=${run.runId} status=${run.status} (${Date.now() - t0}ms)`);
+  } catch (e) {
+    const plan = fallbackLocal(traceId, text, constraints, `网关触发失败：${e.message}`);
+    if (!plan) process.exit(1);
+    printPlan(plan);
+    return;
+  }
 
   if (noWait) {
     console.log(`提示: 方案稍后将写入 data/skill-outbox/plan-${traceId}.json`);
@@ -117,23 +219,31 @@ async function main() {
   console.log('等待 Skill 执行并落盘…');
   const plan = await pollOutbox(traceId, deadline);
   if (plan) {
-    const status = plan.status;
-    console.log(`[DONE] traceId=${traceId} status=${status}`);
-    if (status === 'success') {
-      console.log(`方案：${(plan.items || []).map((i) => `${i.name}×${i.quantity}`).join(' + ')}`);
-      console.log(`合计 ¥${plan.plan.total_price} / ${plan.plan.total_calorie} kcal`);
-    } else {
-      console.log(`原因：${plan.reason}`);
-      console.log(`建议：${plan.hint}`);
-    }
-  } else {
-    await pollRun(run.runId, deadline);
-    console.log(`[TIMEOUT] ${timeoutSec}s 内未等到 plan-${traceId}.json，请检查 WorkBuddy 会话是否在处理该消息`);
+    printPlan(plan);
+    return;
+  }
+
+  // 超时：Skill 可能被会话占用或没被触发，能降级就降级，别让演示干等
+  await pollRun(run.runId, Date.now());
+  const fallback = fallbackLocal(
+    traceId,
+    text,
+    constraints,
+    `${timeoutSec}s 内未等到 plan-${traceId}.json（Skill 可能未在会话中执行）`,
+  );
+  if (!fallback) {
+    console.error('[TIMEOUT] 无法获取方案，请检查 WorkBuddy 会话是否在处理该消息');
     process.exit(1);
   }
+  printPlan(fallback);
 }
 
-main().catch((e) => {
-  console.error(`[FATAL] ${e.message}`);
-  process.exit(1);
-});
+// 加 require.main 守卫是为了能被测试脚本 require 而不触发一次真实请求
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`[FATAL] ${e.message}`);
+    process.exit(1);
+  });
+}
+
+module.exports = { resolveGateway, structuredConstraints, fallbackLocal };

@@ -24,7 +24,7 @@
     }
   ],
   "meta": {
-    "generatedAt": "2026-10-24T12:50:00+08:00",
+    "generatedAt": "2026-10-24T12:50:00.000Z",
     "source": "mcd-mcp query-nearby-stores"
   }
 }

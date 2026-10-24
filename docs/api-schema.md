@@ -307,7 +307,8 @@ export function verify(res: PlanSuccess) {
 **Mock 数据重生成**（后端改了数据或需要换门店时）：
 
 ```bash
-python scripts/build_mock.py   # 从 data/ 实测快照重新推导，数值自洽
+node scripts/build_mock.js   # 由 solver 真实求解推导，数值自洽，与线上结构同源
+# （旧的 build_mock.py 已废弃删除：它基于旧快照，会漏品且产出旧结构）
 ```
 
 ---

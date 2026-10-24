@@ -212,9 +212,30 @@ async function main() {
     items = (await fetchMenu(storeCode)).items;
   }
 
-  console.log('拉取官方营养表…');
-  const nutMap = await fetchNutrition();
-  console.log(`营养表 ${nutMap.size} 条`);
+  let nutMap;
+  if (offline) {
+    // 之前的 --offline 只跳过菜单、仍然联网拉营养表，名不副实。
+    // 离线就该完全离线：营养表读本地缓存，断网也能重跑匹配。
+    const cacheFile = path.join(ROOT, 'data/nutrition-cache.json');
+    if (!fs.existsSync(cacheFile)) {
+      throw new Error(`离线模式需要营养缓存 ${cacheFile}，请先联网跑一次本脚本`);
+    }
+    const rows = JSON.parse(fs.readFileSync(cacheFile, 'utf8')).items.map((r) => ({
+      productName: r.n,
+      energyKcal: r.kcal,
+      protein: r.p,
+      fat: r.f,
+      carbohydrate: r.c,
+      sodium: r.na,
+      calcium: r.ca,
+    }));
+    nutMap = nutritionToMap(rows);
+    console.log(`营养表 ${nutMap.size} 条（本地缓存，未联网）`);
+  } else {
+    console.log('拉取官方营养表…');
+    nutMap = await fetchNutrition();
+    console.log(`营养表 ${nutMap.size} 条`);
+  }
 
   let hit = 0, single = 0;
   for (const it of items) {

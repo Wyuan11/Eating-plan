@@ -29,15 +29,28 @@ const ROOT = path.join(__dirname, '..');
  * 抽出来导出是为了让 scripts/build_mock.js 复用同一份逻辑生成前端 Mock——
  * Mock 和真实落盘走同一段代码，就不可能出现「Mock 是旧结构、真实是新结构」的漂移。
  */
+/**
+ * 菜单来源优先级：显式指定 > 真实门店缓存 data/menu-<storeCode>.json > 前端 Mock
+ *
+ * 之前默认读 web/mock/menu.json，那是给前端联调用的副本（基于旧快照，比真实缓存少
+ * 「脆脆薯条」等新品），演示时会少候选品。真实门店缓存才是权威数据源。
+ */
+function resolveMenuFile(storeCode, explicit) {
+  if (explicit) return path.resolve(ROOT, explicit);
+  const real = path.join(ROOT, 'data', `menu-${storeCode}.json`);
+  if (fs.existsSync(real)) return real;
+  return path.join(ROOT, 'web', 'mock', 'menu.json');
+}
+
 function buildPayload(opts) {
   const {
     traceId = `t${Date.now()}`,
-    menuFile = path.join(ROOT, 'web/mock/menu.json'),
     storeCode = '1450713',
     intent = '',
     constraints = { budget: 60, calorie_limit: null, people: 1, excluded: [] },
     objective = 'balanced',
   } = opts || {};
+  const menuFile = resolveMenuFile(storeCode, opts.menuFile);
 
   let menu;
   try {
@@ -136,7 +149,7 @@ function main() {
 
   const { payload } = emit({
     traceId: arg('traceId', null) || `t${Date.now()}`,
-    menuFile: arg('menu', path.join(ROOT, 'web/mock/menu.json')),
+    menuFile: arg('menu', null), // 不传则自动选真实门店缓存
     storeCode: arg('store', '1450713'),
     intent: arg('intent', ''),
     objective: arg('objective', 'balanced'),

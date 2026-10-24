@@ -155,7 +155,7 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 3. **`meta` 变了，别依赖 `meta.candidates`**：新版 meta 是 `{storeCode?, storeName?, generatedAt, traceId}`，候选数只在 `suggestion` 文案里。
    另外 `items` 顺序改为按 `code` 排序（展示顺序可能与旧版不同，无功能影响）。
 
-> 顺带：`web/mock/plan.success.json` 里的 alternatives 还是旧结构，建议用 `scripts/build_mock.py` 重新生成，否则 Mock 与真实响应不一致。
+> 已修复：`web/mock/plan.success.json` 的 alternatives 旧结构问题已解决。现在统一用 `node scripts/build_mock.js` 生成（旧的 `build_mock.py` 已删除，它会产出旧结构并覆盖 JS 的结果）。
 
 ### 给后端 A：新版的 3 个注意点
 
@@ -192,7 +192,10 @@ WorkBuddy 桌面端内置本机 Gateway（`http://127.0.0.1:63698`，端口从 `
 - **Mock 与真实落盘走同一段代码**，字段差异实测为「无 / 无」，从此不会漂移。
 - `web/src/types.ts` 已更新到 v1.1：`status` 三态判别、`request.constraints`、`objective`、`Alternative.items` 为完整 `PlanItem[]`（含 code/quantity，可直接下单）。
   - 旧代码若用了 `success` 布尔或顶层 `constraints`，需改；已保留 `isNoSolution/isError/isSuccess` 三个守卫，内部优先读 `status`。
-- `menu.json` / `stores.json` 仍由 `scripts/build_mock.py` 从实测快照生成（菜单 124 品、可信池 33、营养缺失 0，健康）。
+- **全部 Mock 由 `node scripts/build_mock.js` 生成**（menu/stores/plan 三态/order）。
+  menu.json 直接取真实门店缓存 `data/menu-1450713.json`（125 品、可信池 34、营养缺失 0），
+  与 emit-plan 求解用的是同一份数据 —— 这样前端「独立重算校验」不会遇到菜单里查不到的品。
+  旧的 `build_mock.py` 已删除（它基于 12:31 旧快照，会漏掉脆脆薯条等品，且会覆盖 JS 产出的新结构）。
 
 **前端现在可以直接按 `web/mock/plan.*.json` 的结构写渲染，接上 bridge 后不用改解析。**
 

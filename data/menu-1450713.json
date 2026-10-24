@@ -2660,7 +2660,7 @@
     "hitRate": "63%"
   },
   "meta": {
-    "generatedAt": "2026-10-24T05:11:34.895Z",
+    "generatedAt": "2026-10-24T06:58:54.157Z",
     "source": "mcd-mcp query-meals + list-nutrition-foods"
   }
 }
