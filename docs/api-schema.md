@@ -1,8 +1,29 @@
-# 麦门智选助手 · 前后端接口契约 Schema v1
+# 麦门智选助手 · 前后端接口契约 Schema v1.1
 
 > 前端同学：这份文档 + `web/mock/*.json` + `web/src/types.ts` 三件套到手即可开工，**不需要等后端**。  
 > 所有 mock 数据均由麦当劳官方 MCP 实测返回推导，字段与最终联调完全一致。  
 > **本文档冻结后不再变更字段名**；如需变更，必须走 v2 并同步更新本文件。
+
+## ⚡ v1.1 变更（2026-10-24，与 solver v1.1 同步；**与下方 v1 正文冲突时以本节为准**）
+
+1. **三态判据改为 `status`**：`success` / `nosolution` / `error`，外加异步态 `pending`。
+   不再用 `success` 布尔 + `conflict` 有无去猜——`error` 态以前会被误判成「无解」，用户以为是自己预算不合理。
+2. **约束改放 `request.constraints`**（顶层 `constraints` 作为兼容别名同时提供，二者是同一个对象）。
+3. 新增 **`objective`**：`balanced` / `lowest_price` / `lowest_calorie`，前端可做三个目标切换。
+4. **`alternatives[].items` 升级为完整 `PlanItem[]`**（含 `code`/`quantity`），备选方案可直接下单与校验；
+   label 改为 **「最省钱」/「最低卡」/「均衡推荐」**。
+5. `meta` 不再有 `candidates`；`items` 按 `code` 排序。
+6. **前端接入方式**：任何来源的响应先过 `web/src/lib/normalize.js` 的 `normalizePlan()`，
+   再用 `isSuccess/isNoSolution/isError` 判别三态。这样后端 `api.js` 无论返回 v1 还是 v1.1 都能吃。
+
+```js
+import { normalizePlan, isSuccess, isNoSolution, isError } from './lib/normalize.js';
+const plan = normalizePlan(res);          // status / request.constraints / objective / meta 全部就位
+if (isSuccess(plan)) renderPlan(plan);
+else if (isNoSolution(plan)) renderNoSolution(plan);   // reason + conflict + hint
+else if (isError(plan)) renderError(plan);             // error.code + error.detail
+else keepPolling(plan);                                 // status === 'pending'
+```
 
 ---
 
@@ -123,16 +144,25 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
 
 ```jsonc
 {
-  "success": true,
+  "status": "success",            // v1.1：三态唯一判据
+  "success": true,                // 兼容旧代码，等价于 status === 'success'
+  "traceId": "demo-001",
+  "createdAt": "2026-10-24T07:00:00.000Z",
+  "objective": "balanced",
+  "request": {
+    "storeCode": "1450713",
+    "constraints": { "budget": 60, "calorie_limit": 1200, "people": 2, "excluded": ["辣"] },
+    "intent": "两个人午餐60元1200大卡不要辣"
+  },
+  "constraints": { "budget": 60, "calorie_limit": 1200, "people": 2, "excluded": ["辣"] },  // 与 request.constraints 同源
   "message": "推荐完成",
-  "constraints": { "budget": 60, "calorie_limit": 1200, "people": 2, "excluded": ["辣"] },
   "plan": {
-    "total_price": 57.9,
-    "total_calorie": 892,
-    "original_price": 71,
+    "total_price": 56.9,
+    "total_calorie": 962,
+    "original_price": 70,
     "saved": 13.1,
-    "budget_usage": "96%",   // 字符串，含 % 号，直接渲染
-    "calorie_usage": "74%"   // 无热量约束时为 "—"
+    "budget_usage": "95%",   // 字符串，含 % 号，直接渲染
+    "calorie_usage": "80%"   // 无热量约束时为 "—"
   },
   "items": [
     { "code": "1406", "name": "板烧鸡腿堡", "price": 23.5, "calorie": 391,
@@ -143,15 +173,19 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
   ],
   "nutrition": { "protein": 41, "fat": 39, "carbohydrate": 91, "sodium": 1859, "calcium": 436 },
   "alternatives": [
-    { "label": "更省钱的", "total_price": 42.9, "total_calorie": 647,
-      "items": [ { "name": "麦香鸡", "price": 17, "calorie": 369 } /* ... */ ] },
-    { "label": "更低卡的", "total_price": 55.0, "total_calorie": 503, "items": [ /* ... */ ] }
+    { "label": "最省钱", "objective": "lowest_price", "total_price": 39.5, "total_calorie": 694,
+      "items": [ { "code": "1450", "name": "麦香鸡", "price": 17, "calorie": 369, "quantity": 1 } ] },
+    { "label": "最低卡", "objective": "lowest_calorie", "total_price": 45.0, "total_calorie": 650, "items": [ /* ... */ ] },
+    { "label": "均衡推荐", "objective": "balanced", "total_price": 56.9, "total_calorie": 962, "items": [ /* ... */ ] }
   ],
-  "suggestion": "这套方案把预算用到了 96%……（一句话解释，直接展示）",
-  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表",
-  "meta": { "storeName": "...", "storeCode": "1450713", "traceId": "...", "generatedAt": "..." }
+  "suggestion": "这套方案把预算用到了 95%……（一句话解释，直接展示）",
+  "source_note": "数据来自麦当劳官方 MCP 实时菜单与营养表（未公布营养的新品不参与计算）",
+  "meta": { "storeCode": "1450713", "traceId": "demo-001", "generatedAt": "...", "elapsedMs": 276 }
 }
 ```
+
+> v1.1 的 `alternatives[].items` 是**完整 PlanItem**（带 `code`/`quantity`/`calorie_source`），
+> 所以备选方案也能直接做独立重算校验和下单；v1 只有 `name/price/calorie`，不能。
 
 ### 失败响应 A：约束无解 `200`（业务失败，非 HTTP 错误）
 
@@ -182,11 +216,16 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
 ### 判别逻辑（照抄 `types.ts` 里的守卫）
 
 ```ts
-if (!res.success) {
-  if ('conflict' in res)  renderNoSolution(res);  // 业务无解：展示 reason + hint
-  else                    renderError(res);       // 系统异常：展示 error.detail + 重试按钮
+// v1.1：先看 status，再分支。不要把 error 当成 no_solution
+switch (res.status) {
+  case 'success':    renderSuccess(res);    break;
+  case 'nosolution': renderNoSolution(res); break;   // reason + conflict + hint
+  case 'error':      renderError(res);      break;   // error.code + error.detail
+  default:           keepPolling(res);               // 'pending' 等未知态，继续轮询
 }
 ```
+
+最低成本写法：直接用 `web/src/lib/normalize.js` 的 `isSuccess/isNoSolution/isError` 三个守卫。
 
 **错误码**：`BAD_REQUEST` / `MCP_UPSTREAM_ERROR` / `NO_SOLUTION` / `STORE_CLOSED` / `NOT_FOUND` / `INTERNAL_ERROR`
 
@@ -221,16 +260,18 @@ if (!res.success) {
 ```
 idle ──点击「帮我搭配」──> loading ──┬─> success      渲染方案卡片
                                     ├─> no_solution  渲染无解提示 + 放宽建议
-                                    └─> error        渲染错误 + 重试按钮
+                                    ├─> error        渲染错误 + 重试按钮
+                                    └─> pending      方案生成中，继续轮询（异步链路）
 ```
 
 | 状态            | 触发条件                            | UI 要求                                           |
 | ------------- | ------------------------------- | ----------------------------------------------- |
 | `idle`        | 初始                              | 约束输入表单（预算必填、热量上限、人数、忌口多选）                       |
 | `loading`     | 请求中                             | **必须有骨架屏**，不要转圈等待。求解耗时可能 3–8 秒                  |
-| `success`     | `success===true`                | 见下方区块清单                                         |
-| `no_solution` | `success===false` 且含 `conflict` | 高亮 `reason`，把 `hint` 做成**一键放宽**按钮               |
-| `error`       | 含 `error` 字段                    | `error.detail` + 「重试」，`retryable===false` 时禁用重试 |
+| `pending`     | `status==='pending'` 或 404+pending | 显示「方案生成中」，**1.5s 轮询，不要弹报错**（文件桥未生成时返回 404 + `status:"pending"`） |
+| `success`     | `status==='success'`            | 见下方区块清单                                         |
+| `no_solution` | `status==='nosolution'`         | 高亮 `reason`，把 `hint` 做成**一键放宽**按钮               |
+| `error`       | `status==='error'`              | `error.detail` + 「重试」，`retryable===false` 时禁用重试 |
 
 ### success 态渲染区块（自上而下）
 
@@ -318,4 +359,4 @@ node scripts/build_mock.js   # 由 solver 真实求解推导，数值自洽，�
 - 字段命名统一 **snake_case**（与 MCP 返回对齐），前端内部可转 camelCase，但**网络层必须是 snake_case**
 - 金额单位**元**（number，保留 2 位），热量单位**千卡**，钠/钙单位**毫克**，其余**克**
 - 所有百分比字段是**带 % 号的字符串**，前端不需要再乘 100
-- `success` 字段恒存在，用它的布尔值 + `conflict`/`error` 字段判别三态，不要只看 HTTP 状态码
+- `status` 字段恒存在，用它判别三态（`success` / `nosolution` / `error` / `pending`）；`success` 布尔仅作兼容保留，不要只看 HTTP 状态码

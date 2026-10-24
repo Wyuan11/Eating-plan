@@ -14,7 +14,11 @@ const query = ref('')
 const form = reactive({
   budget: 60,
   people: 2,
-  useCalorie: true,
+  // 红线：用户没提热量就不设上限。此前默认 true + 1200，会导致
+  // "两个人预算60" 这种没提热量的请求被强加一个 1200 大卡硬约束，
+  // 答辩被问"1200 哪来的"答不上来。现在只有用户勾选或话语里出现
+  // 减脂/低卡等词时才带上热量上限。
+  useCalorie: false,
   calorie_limit: 1200,
   excluded: [],
 })

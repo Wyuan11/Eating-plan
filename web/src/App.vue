@@ -80,8 +80,29 @@ async function onSubmit(payload) {
           <p>{{ error }}</p>
         </div>
 
+        <!-- 参数错误态：与"无解"必须分开，否则用户以为自己预算不合理 -->
+        <div v-else-if="result && result.status === 'error'" class="card state state--nosolution">
+          <div class="state__icon">⚠️</div>
+          <h3>请求参数有问题</h3>
+          <p class="state__reason">{{ result.error?.detail || result.message }}</p>
+          <div v-if="result.error?.code" class="state__conflict">
+            <span>错误码：</span>{{ result.error.code }}
+          </div>
+          <p v-if="mock" class="state__mock">🧪 内置演示数据 · 未连接后端 /api/plan</p>
+        </div>
+
+        <!-- 等待态：Skill 异步落盘时先占位，不要落到空态误导用户 -->
+        <div v-else-if="result && result.status === 'pending'" class="card state">
+          <div class="state__icon">⏳</div>
+          <h3>方案生成中</h3>
+          <p>Skill 正在求解，稍后自动刷新…</p>
+        </div>
+
         <!-- 无解态 -->
-        <div v-else-if="result && result.success === false" class="card state state--nosolution">
+        <div
+          v-else-if="result && (result.status === 'nosolution' || (result.success === false && !result.error))"
+          class="card state state--nosolution"
+        >
           <div class="state__icon">🤔</div>
           <h3>暂时凑不出可行方案</h3>
           <p class="state__reason">{{ result.reason }}</p>
@@ -96,7 +117,7 @@ async function onSubmit(payload) {
 
         <!-- 结果态 -->
         <ResultView
-          v-else-if="result && result.success === true"
+          v-else-if="result && (result.status === 'success' || (result.success === true && !result.status))"
           :result="result"
           :mock="mock"
           :fallback-reason="fallbackReason"
