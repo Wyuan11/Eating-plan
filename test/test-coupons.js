@@ -12,6 +12,7 @@ const C = require('../server/coupons');
 
 const menuPath = process.argv[2] || path.resolve(__dirname, '../data/menu-1450713.json');
 const probePath = path.resolve(__dirname, '../data/coupon-probe.json');
+const fixturePath = path.resolve(__dirname, './fixtures/my-coupons.md');
 
 let pass = 0, fail = 0;
 const ok = (name, fn) => {
@@ -19,10 +20,25 @@ const ok = (name, fn) => {
   catch (e) { fail++; console.log(`  ✗ ${name}\n      ${e.message}`); }
 };
 
-console.log('== 券解析（真实 MCP 返回）==');
-const probe = JSON.parse(fs.readFileSync(probePath, 'utf8'));
-const raw = probe.tools['query-my-coupons'].raw;
+const { raw, source } = loadRaw();
 const coupons = C.parseMyCoupons(raw);
+
+console.log(`== 券解析（真实 MCP 返回，来源：${source}）==`);
+/**
+ * 输入优先级：先用 data/coupon-probe.json（真实 MCP 最新返回），
+ * 探测文件缺失或为空时回退 test/fixtures/my-coupons.md（同一份真实数据的固化快照）。
+ * 这样网络抖动时测试也不会假失败——券解析逻辑本身是纯函数，不依赖网络。
+ */
+function loadRaw() {
+  if (fs.existsSync(probePath)) {
+    try {
+      const probe = JSON.parse(fs.readFileSync(probePath, 'utf8'));
+      const raw = probe.tools?.['query-my-coupons']?.raw;
+      if (raw && String(raw).includes('用券价格')) return { raw, source: 'data/coupon-probe.json（MCP 实时探测）' };
+    } catch { /* 落到 fixture */ }
+  }
+  return { raw: fs.readFileSync(fixturePath, 'utf8'), source: 'test/fixtures/my-coupons.md（固化快照）' };
+}
 
 ok('解析出券且数量 > 0', () => assert.ok(coupons.length > 0, `解析到 ${coupons.length} 张`));
 ok('每张券都有用券价格（分）', () => {

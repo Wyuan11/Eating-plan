@@ -122,8 +122,22 @@ function firstList(obj) {
     }
   }
 
+  // 合并旧结果：本次调用失败的工具沿用上一次成功的原始数据。
+  // 否则一次网络抖动就会把好数据覆盖成空，下游测试与解析全部失真。
   const out = path.join(__dirname, '..', 'data', 'coupon-probe.json');
+  let merged = report;
+  if (fs.existsSync(out)) {
+    try {
+      const prev = JSON.parse(fs.readFileSync(out, 'utf8'));
+      merged = { ...report, tools: { ...(prev.tools || {}), ...report.tools } };
+      for (const [name, cur] of Object.entries(report.tools)) {
+        const old = prev.tools?.[name];
+        if (cur.ok !== true && old && old.ok === true) merged.tools[name] = old;
+      }
+    } catch { /* 旧文件损坏就用本次结果 */ }
+  }
   fs.mkdirSync(path.dirname(out), { recursive: true });
-  fs.writeFileSync(out, JSON.stringify(report, null, 2), 'utf8');
-  console.log(`\n已写入 ${out}`);
+  fs.writeFileSync(out, JSON.stringify(merged, null, 2), 'utf8');
+  const failedCount = Object.values(merged.tools).filter((t) => t.ok !== true).length;
+  console.log(`\n已写入 ${out}${failedCount ? `（${failedCount} 个工具本次调用失败，沿用上次成功数据）` : ''}`);
 })();

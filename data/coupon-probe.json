@@ -1,61 +1,267 @@
 {
-  "probedAt": "2026-10-24T16:22:17.694Z",
+  "probedAt": "2026-10-24T16:25:35.321Z",
   "storeCode": "1450713",
   "tools": {
     "query-my-coupons": {
-      "schema": null,
-      "args": null,
-      "ok": null,
-      "error": "tools/list 中不存在该工具",
-      "raw": null,
+      "schema": {
+        "properties": {
+          "page": {
+            "description": "页码，默认第1页，最多5页",
+            "type": "string"
+          },
+          "pageSize": {
+            "description": "每页条数，默认200条，最大200条",
+            "type": "string"
+          }
+        },
+        "type": "object"
+      },
+      "args": {
+        "page": 1,
+        "pageSize": 200
+      },
+      "ok": true,
+      "error": null,
+      "raw": "# 您的优惠券列表\n\n共 5 张可用优惠券 | 第 1/1 页 | 每页 200 条\n\n## 11.9元麦辣鸡腿堡\n- **优惠**: ¥11.9 (用券价格)\n- **有效期**: 2026-10-26 10:30-2026-10-30 23:59 周一、二、三、四、五 10:30-23:59\n- **领取时间**: 今日收到\n- **标签**: 到店专用、外送专用\n\n<img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/a0f8ecb0822a4288bb55afce798d9cb3/%E9%BA%A6%E8%BE%A3%E9%B8%A1%E8%85%BF%E5%A0%A1%E6%B1%89%E5%A0%A1.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792389697%3B1950069697%26q-key-time%3D1792389697%3B1950069697%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3Da3bec699843da73d9273c5e080565645a9844d63\" alt=\"11.9元麦辣鸡腿堡\" height=\"auto\" width=\"300\">\n\n\n## 19.9元王牌炸鸡任选2\n- **优惠**: ¥19.9 (用券价格)\n- **有效期**: 2026-10-26 10:30-2026-10-30 23:59 周一、二、三、四、五 10:30-23:59\n- **领取时间**: 今日收到\n- **标签**: 到店专用、外送专用\n\n<img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/b1bb2a8a1daa4a589e30cb5082948a03/%E7%8E%8B%E7%89%8C%E5%B0%8F%E9%A3%9F%E8%87%AA%E7%94%B1%E6%8B%BC.jpg?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390814%3B1950070814%26q-key-time%3D1792390814%3B1950070814%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3Dd353554490c0eb4d459da88a4609d3aad35af882\" alt=\"19.9元王牌炸鸡任选2\" height=\"auto\" width=\"300\">\n\n\n## 新人专享-中杯美式7折\n- **优惠**: ¥13.3 (用券价格)\n- **有效期**: 2026-10-23 00:00-2026-11-21 23:59 05:00-23:59\n- **领取时间**: 2日前收到\n- **标签**: 到店专用\n\n<img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/coupon/prod/e5f73288b67e419b99e660f74658d8d3/365A627ABDC435D840984F03055DF097.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDrS2MQE4VxA7pNsNcT6j6D8oENIdjpjgP%26q-sign-time%3D1663654749%3B1821334749%26q-key-time%3D1663654749%3B1821334749%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3De113e758f53f8d160de80ce7b0733eff44ee6c98\" alt=\"新人专享-中杯美式7折\" height=\"auto\" width=\"300\">\n\n\n## 新人专享-中杯奶铁7折\n- **优惠**: ¥14.7 (用券价格)\n- **有效期**: 2026-10-23 00:00-2026-11-21 23:59 05:00-23:59\n- **领取时间**: 2日前收到\n- **标签**: 到店专用\n\n<img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/coupon/prod/d1d6d59667464558be366e6b04a0ca18/%E6%96%B0%E4%BA%BA%E4%B8%93%E4%BA%AB%E4%B8%AD%E6%9D%AF%E5%A5%B6%E9%93%81.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1721906755%3B1879586755%26q-key-time%3D1721906755%3B1879586755%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D2b43d9e1a7f5adb3dffa6594cebff6654f34cb1c\" alt=\"新人专享-中杯奶铁7折\" height=\"auto\" width=\"300\">\n\n\n## 麦辣鸡腿堡三件套\n- **优惠**: ¥22.9 (用券价格)\n- **有效期**: 2026-10-23 00:00-2026-11-23 23:59 10:30-23:59\n- **领取时间**: 昨日收到\n- **标签**: 到店专用\n\n<img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/db85f71cf16b47778e6c9f79b289ee77/51c2aec8-5def-4f60-a7d1-5ebfc6f0289b.jpg?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1791955670%3B1949635670%26q-key-time%3D1791955670%3B1949635670%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3Df33b705220b38f709f0f0f53a00e7c347273040b\" alt=\"麦辣鸡腿堡三件套\" height=\"auto\" width=\"300\">\n\n\n\n",
       "shape": null,
       "listPath": null,
       "count": 0,
       "sample": null
     },
     "available-coupons": {
-      "schema": null,
-      "args": null,
-      "ok": null,
-      "error": "tools/list 中不存在该工具",
-      "raw": null,
+      "schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "args": {},
+      "ok": true,
+      "error": null,
+      "raw": "### 麦麦省优惠券列表：\n- 优惠券标题：免费脆薯饼 \\\n  状态：已领取 \\\n  优惠券图片：\\\n    <img src=\"https://img.mcd.cn/cms/images/858839306b7cca66.png\" alt=\"免费脆薯饼\" height=\"auto\" width=\"300\">\n- 优惠券标题：11.9元麦辣鸡腿堡 \\\n  状态：已领取 \\\n  优惠券图片：\\\n    <img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/428e50a23a7243b497691f44f55df3a6/%E9%BA%A6%E8%BE%A3%E9%B8%A1%E8%85%BF%E5%A0%A1600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390870%3B1950070870%26q-key-time%3D1792390870%3B1950070870%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D9335556a091f7531c195c391c1c4a474ab561030\" alt=\"11.9元麦辣鸡腿堡\" height=\"auto\" width=\"300\">\n- 优惠券标题：19.9元王牌炸鸡任选2 \\\n  状态：已领取 \\\n  优惠券图片：\\\n    <img src=\"https://mcd-portal-prod-cos1-1300270282.cos.ap-shanghai.myqcloud.com/campaign/prod/campaign-offer/coupon/3d8aad332ed94030aca790068eb56054/%E7%8E%8B%E7%89%8C%E7%82%B8%E9%B8%A1%E4%BB%BB%E9%80%892%20600x600.png?sign=q-sign-algorithm%3Dsha1%26q-ak%3DAKIDCD6mEcX25tVrjNxiPvEICas0uXyBKIBs%26q-sign-time%3D1792390820%3B1950070820%26q-key-time%3D1792390820%3B1950070820%26q-header-list%3D%26q-url-param-list%3D%26q-signature%3D8071268ddd60571549998be5267e1c7b0b71284a\" alt=\"19.9元王牌炸鸡任选2\" height=\"auto\" width=\"300\">\n\n",
       "shape": null,
       "listPath": null,
       "count": 0,
       "sample": null
     },
     "query-store-coupons": {
-      "schema": null,
-      "args": null,
-      "ok": null,
-      "error": "tools/list 中不存在该工具",
-      "raw": null,
+      "schema": {
+        "properties": {
+          "beCode": {
+            "description": "业务编码，与storeCode 配对使用，从query-nearby-stores或delivery-query-stores返回结果中获取。得来速(beType=5)/外送(orderType=2)/团餐场景必传，到店自取(beType=1)场景不传",
+            "type": "string"
+          },
+          "beType": {
+            "description": "1-到店取餐，2-麦乐送到家，5-得来速(DT)，6-企业团餐",
+            "enum": [
+              1,
+              2,
+              5,
+              6
+            ],
+            "type": "integer"
+          },
+          "orderType": {
+            "description": "订单类型, 1-到店（含到店自取+得来速车道取餐），2-外送（含麦乐送+企业团餐）",
+            "enum": [
+              1,
+              2
+            ],
+            "type": "integer"
+          },
+          "reservationDate": {
+            "description": "预约场景必传，非预约场景不传。格式 yyyy-MM-dd HH:mm",
+            "type": "string"
+          },
+          "storeCode": {
+            "description": "门店编码必须全部由数字组成",
+            "type": "string"
+          }
+        },
+        "required": [
+          "orderType",
+          "beType",
+          "storeCode"
+        ],
+        "type": "object"
+      },
+      "args": {
+        "beType": 1,
+        "orderType": 1,
+        "storeCode": "1450713"
+      },
+      "ok": true,
+      "error": null,
+      "raw": "## Response Structure \n- **重要**: 同一券ID可对应多个券码，展示时按券ID分组\n## 字段说明\n| 字段 | 数据源 | 展示规则 | 是否展示\n|-----|--------|----------|--|\n| 券名 | `data[].title` | 完整显示 | 强制展示 |\n| 券ID | `data[].couponId` | 分组标识 | 强制展示 |\n| 券码 | `data[].couponCode` | 多个时显示\\\"首个(共N张)\\\" | 强制展示 |\n| 有效期 | `data[].tradeDateTime` | 格式化日期 | 强制展示 |\n| 适用商品 | `data[].products[].productName` | 多个商品分行显示 | 强制展示 |\n| 商品编码 | `data[].products[].productCode` | 对应商品编码 | 强制展示 |\n## 输出格式\n## {data[].title}(共{券码}张)\n|券ID|券码|有效期|适用商品|商品编码|\n|:---:|:---:|:---:|:---:|:---:|\n|{data[].couponId}|{首个data[].couponCode}|{data[].tradeDateTime}|{data[].products[].productName}|{data[].products[].productCode}|{\"success\":true,\"code\":200,\"message\":\"请求成功\",\"datetime\":\"2026-10-25 00:25:35\",\"traceId\":\"77ab8506c10442dbacbe88ae7ac3befe\",\"data\":[]}",
       "shape": null,
       "listPath": null,
       "count": 0,
       "sample": null
     },
     "query-promotions": {
-      "schema": null,
-      "args": null,
-      "ok": null,
-      "error": "tools/list 中不存在该工具",
-      "raw": null,
-      "shape": null,
-      "listPath": null,
-      "count": 0,
-      "sample": null
+      "schema": {
+        "properties": {
+          "beCode": {
+            "description": "业务编码，与storeCode 配对使用，团餐场景必传（从 delivery-query-stores 获取）",
+            "type": "string"
+          },
+          "beType": {
+            "description": "业务类型，固定传 6（企业团餐）",
+            "enum": [
+              6
+            ],
+            "type": "integer"
+          },
+          "orderType": {
+            "description": "订单类型，团餐场景固定传 2（外送）",
+            "enum": [
+              2
+            ],
+            "type": "integer"
+          },
+          "reservationDate": {
+            "description": "预约场景必传，非预约场景不传。格式:yyyy-MM-dd HH:mm",
+            "type": "string"
+          },
+          "storeCode": {
+            "description": "门店编码（storeCode）, 不能为空",
+            "type": "string"
+          }
+        },
+        "required": [
+          "storeCode",
+          "orderType",
+          "beType"
+        ],
+        "type": "object"
+      },
+      "args": {
+        "beType": 1,
+        "orderType": 1,
+        "storeCode": "1450713"
+      },
+      "ok": true,
+      "error": null,
+      "raw": "# API Response Information\n\nBelow is the response from an API call. To help you understand the data, I've provided:\n\n1. A detailed description of all fields in the response structure\n2. The complete API response\n\n## Response Structure\n\n> Content-Type: application/json\n\n- **data**: 当前门店有效的促销规则列表 (Type: array)\n  - **data[].promotionId**: 促销规则ID (Type: string)\n  - **data[].promotionType**: 促销类型，31-满额减，33-订单折扣 (Type: string)\n  - **data[].ruleCategory**: 规则类别，30-满折/折扣，40-满减 (Type: integer)\n  - **data[].beTypes**: 适用业务类型列表 (Type: array of string)\n  - **data[].startTime**: 生效开始时间，格式 yyyy-MM-dd HH:mm:ss (Type: string)\n  - **data[].endTime**: 生效结束时间，格式 yyyy-MM-dd HH:mm:ss (Type: string)\n  - **data[].gmServiceCode**: 助餐服务编码 (Type: string)\n  - **data[].products**: 适用餐品列表 (Type: array)\n    - **data[].products[].type**: 餐品范围类型，1-包含，2-不包含，3-全部 (Type: string)\n    - **data[].products[].productCode**: 餐品编码 (Type: string)\n  - **data[].ruleDetail**: 规则明细 (Type: object)\n    - **data[].ruleDetail.orderDiscount**: 订单折扣（满折） (Type: object)\n      - **data[].ruleDetail.orderDiscount.discount**: 折扣值（如 30 表示 7 折） (Type: string)\n      - **data[].ruleDetail.orderDiscount.startDiscountPoint**: 满额折扣触发门槛（元） (Type: string)\n    - **data[].ruleDetail.orderReduce**: 订单满减 (Type: object)\n      - **data[].ruleDetail.orderReduce.reduceInfo**: 满减阶梯列表 (Type: array)\n        - **data[].ruleDetail.orderReduce.reduceInfo[].startDiscountPoint**: 满额减触发门槛（元） (Type: string)\n        - **data[].ruleDetail.orderReduce.reduceInfo[].reduceAmount**: 减免金额（元） (Type: string)\n- **message**: No comments found. (Type: string)\n- **traceId**: No comments found. (Type: string)\n\n## Original Response\n\n{\"success\":true,\"code\":200,\"message\":\"请求成功\",\"datetime\":\"2026-10-25 00:25:35\",\"traceId\":\"ea58e8977c864d7b5a4ca293c62696ff\",\"data\":[{\"promotionId\":\"331878004\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS002\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"12\",\"startDiscountPoint\":\"300\"}}},{\"promotionId\":\"331878007\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS002\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"24\",\"startDiscountPoint\":\"2000\"}}},{\"promotionId\":\"331878006\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS002\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"20\",\"startDiscountPoint\":\"1000\"}}},{\"promotionId\":\"331878005\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS002\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"16\",\"startDiscountPoint\":\"500\"}}},{\"promotionId\":\"331878001\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS001\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"26\",\"startDiscountPoint\":\"500\"}}},{\"promotionId\":\"331878009\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS003\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"11\",\"startDiscountPoint\":\"500\"}}},{\"promotionId\":\"331878003\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS001\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"34\",\"startDiscountPoint\":\"2000\"}}},{\"promotionId\":\"331878010\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS003\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"15\",\"startDiscountPoint\":\"1000\"}}},{\"promotionId\":\"331868002\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS001\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"22\",\"startDiscountPoint\":\"300\"}}},{\"promotionId\":\"331878011\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS003\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"19\",\"startDiscountPoint\":\"2000\"}}},{\"promotionId\":\"331878008\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS003\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"7\",\"startDiscountPoint\":\"300\"}}},{\"promotionId\":\"331878002\",\"promotionType\":\"33\",\"ruleCategory\":30,\"beTypes\":[\"6\"],\"startTime\":\"2025-03-01 00:00:00\",\"endTime\":\"2026-12-31 23:59:59\",\"gmServiceCode\":\"GMS001\",\"products\":[{\"type\":\"2\",\"productCode\":\"9900016054\"}],\"ruleDetail\":{\"orderDiscount\":{\"discount\":\"30\",\"startDiscountPoint\":\"1000\"}}}]}",
+      "shape": {
+        "success": true,
+        "code": 200,
+        "message": "请求成功",
+        "datetime": "2026-10-25 00:25:35",
+        "traceId": "ea58e8977c864d7b5a4ca293c62696ff",
+        "data": [
+          {
+            "promotionId": "331878004",
+            "promotionType": "33",
+            "ruleCategory": 30,
+            "beTypes": [
+              "…"
+            ],
+            "startTime": "2025-03-01 00:00:00",
+            "endTime": "2026-12-31 23:59:59",
+            "gmServiceCode": "GMS002",
+            "products": [
+              "…"
+            ],
+            "ruleDetail": {
+              "orderDiscount": "…"
+            }
+          }
+        ]
+      },
+      "listPath": ".data",
+      "count": 12,
+      "sample": [
+        {
+          "promotionId": "331878004",
+          "promotionType": "33",
+          "ruleCategory": 30,
+          "beTypes": [
+            "6"
+          ],
+          "startTime": "2025-03-01 00:00:00",
+          "endTime": "2026-12-31 23:59:59",
+          "gmServiceCode": "GMS002",
+          "products": [
+            {
+              "type": "2",
+              "productCode": "9900016054"
+            }
+          ],
+          "ruleDetail": {
+            "orderDiscount": {
+              "discount": "12",
+              "startDiscountPoint": "300"
+            }
+          }
+        },
+        {
+          "promotionId": "331878007",
+          "promotionType": "33",
+          "ruleCategory": 30,
+          "beTypes": [
+            "6"
+          ],
+          "startTime": "2025-03-01 00:00:00",
+          "endTime": "2026-12-31 23:59:59",
+          "gmServiceCode": "GMS002",
+          "products": [
+            {
+              "type": "2",
+              "productCode": "9900016054"
+            }
+          ],
+          "ruleDetail": {
+            "orderDiscount": {
+              "discount": "24",
+              "startDiscountPoint": "2000"
+            }
+          }
+        },
+        {
+          "promotionId": "331878006",
+          "promotionType": "33",
+          "ruleCategory": 30,
+          "beTypes": [
+            "6"
+          ],
+          "startTime": "2025-03-01 00:00:00",
+          "endTime": "2026-12-31 23:59:59",
+          "gmServiceCode": "GMS002",
+          "products": [
+            {
+              "type": "2",
+              "productCode": "9900016054"
+            }
+          ],
+          "ruleDetail": {
+            "orderDiscount": {
+              "discount": "20",
+              "startDiscountPoint": "1000"
+            }
+          }
+        }
+      ]
     },
     "auto-bind-coupons": {
-      "schema": null,
-      "args": null,
-      "ok": null,
-      "error": "tools/list 中不存在该工具",
-      "raw": null,
+      "schema": {
+        "properties": {},
+        "type": "object"
+      },
+      "args": {},
+      "ok": true,
+      "error": null,
+      "raw": "### 领券失败\n\n错误信息：暂无可领取的优惠券\n\n\n",
       "shape": null,
       "listPath": null,
       "count": 0,
       "sample": null
     }
-  }
+  },
+  "availableToolNames": [
+    "query-survey-coupon",
+    "auto-bind-coupons",
+    "query-store-coupons",
+    "available-coupons",
+    "query-promotions",
+    "query-my-coupons"
+  ]
 }
