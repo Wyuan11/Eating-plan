@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "items": [
+    {
+      "code": "1450713",
+      "name": "麦当劳上海黄浦华旭国际大厦餐厅",
+      "address": "南京东路街道西藏中路336号",
+      "beType": 1,
+      "distance": "144m"
+    },
+    {
+      "code": "1450441",
+      "name": "麦当劳上海福州路餐厅",
+      "address": "福州路666号",
+      "beType": 1,
+      "distance": "235m"
+    },
+    {
+      "code": "1450056",
+      "name": "麦当劳上海食品一店餐厅",
+      "address": "南京东路720号",
+      "beType": 1,
+      "distance": "355m"
+    },
+    {
+      "code": "1450195",
+      "name": "麦当劳上海雅居乐餐厅",
+      "address": "西藏中路525号",
+      "beType": 1,
+      "distance": "382m"
+    },
+    {
+      "code": "1450124",
+      "name": "麦当劳上海南京西路NX258餐厅",
+      "address": "南京西路258号1幢一层",
+      "beType": 1,
+      "distance": "412m"
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-10-24T10:11:43.232Z",
+    "source": "mcd-mcp query-nearby-stores",
+    "city": "上海",
+    "keyword": "人民广场"
+  }
+}

@@ -1,0 +1,49 @@
+/* 麦门智选助手 · 全局样式与设计令牌 */
+
+:root {
+  /* 品牌色（麦当劳红 / 黄，仅用于 UI chrome，不用于数据编码） */
+  --brand: #da291c;
+  --brand-soft: #f3b6b3;
+  --brand-ring: rgba(218, 41, 28, 0.18);
+  --accent: #ffc72c;
+
+  /* 墨色（文字） */
+  --ink-primary: #1b1b1b;
+  --ink-secondary: #52514e;
+  --ink-muted: #898781;
+
+  /* 表面 */
+  --bg: #faf8f5;
+  --card: #ffffff;
+  --wash: #f5f4f1;
+  --wash-2: #ecebe7;
+  --border: #e5e3de;
+  --track: #ecebe7;
+
+  /* 数据可视化（dataviz 校验通过的分类色 + 状态色） */
+  --categorical-1: #2a78d6; /* 蓝 · 蛋白质 */
+  --categorical-2: #eb6834; /* 橙 · 脂肪 */
+  --categorical-3: #1baf7a; /* 青 · 碳水 */
+  --status-good: #0ca30c;
+  --status-warning: #fab219;
+  --status-critical: #d03b3b;
+}
+
+* { box-sizing: border-box; }
+
+html, body { margin: 0; padding: 0; }
+
+body {
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: var(--bg);
+  color: var(--ink-primary);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  line-height: 1.5;
+}
+
+button { font-family: inherit; }
+input, select, textarea { font-family: inherit; }
+
+/* 数值列对齐 */
+.tabular { font-variant-numeric: tabular-nums; }
