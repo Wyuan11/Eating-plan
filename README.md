@@ -42,6 +42,7 @@ node server/fetch-menu.js --offline # 完全离线重跑营养匹配（菜单与
 
 | 路径 | 说明 |
 |---|---|
+| `workbuddy.md` / `CONTEST_DECLARATION.md` / `MCP_INTEGRATION.md` | 参赛材料：AI 协作开发全程记录 / 参赛声明 / 麦当劳 MCP 接入说明 |
 | `server/mcp-client.js` | MCP 直连客户端（检查 `isError`、15s 超时、`extractJson`） |
 | `server/fetch-menu.js` | 菜单与营养数据管道，产出 `data/menu-<storeCode>.json` |
 | `server/solver.js` | 确定性求解器 v2（正向诉求 wants / 品类级忌口 / 温度披露 / 简称匹配 / max_value，`solver.v1.bak.js` 为旧版备份） |
