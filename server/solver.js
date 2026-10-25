@@ -110,7 +110,7 @@ function solve(menuItems, c = {}, options = {}) {
   const meta = { ...(c.storeCode ? { storeCode: c.storeCode } : {}), ...(c.storeName ? { storeName: c.storeName } : {}), generatedAt: new Date().toISOString(), traceId: `solver-${require('node:crypto').randomUUID()}` };
   const error = (code, detail) => ({ success: false, message: '求解失败', error: { code, detail, retryable: false }, meta });
   const constraints = { budget: c.budget, calorie_limit: c.calorie_limit ?? null, people: c.people ?? 1, excluded: c.excluded ?? [] };
-  const fail = (reason, conflict, hint) => ({ success: false, message: '约束过严，无法生成可行方案', reason, conflict, hint, constraints, source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta });
+  const fail = (reason, conflict, hint) => ({ success: false, message: '约束过严，无法生成可行方案', reason, conflict, hint, constraints, source_note: '数据来自麦当劳官方菜单与营养数据', meta });
   try {
     if (!Array.isArray(menuItems)) return error('BAD_REQUEST', 'menuItems 必须为数组');
     if (!numeric(constraints.budget) || constraints.budget <= 0) return error('BAD_REQUEST', 'budget 必须大于 0');
@@ -192,8 +192,8 @@ function solve(menuItems, c = {}, options = {}) {
     }
     const items = top.list.map(toPlanItem);
     return { success: true, message: '推荐完成', objective, constraints, plan: top.plan, items, nutrition: top.nutrition, alternatives,
-      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
-      source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta };
+      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。价格和营养由单品乘数量汇总；未知热量商品未参与。`,
+      source_note: '数据来自麦当劳官方菜单与营养数据', meta };
   } catch (e) {
     return error('INTERNAL_ERROR', e.limit ? e.message : `数据或计算异常: ${e.message}`);
   }

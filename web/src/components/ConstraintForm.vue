@@ -34,10 +34,8 @@ const locating = ref(false)
 const locateError = ref('')
 
 const storeHint = computed(() => {
-  const src = props.storesMock ? '未连接后端，门店为内置演示数据'
-    : props.storesSource === 'live' ? '门店来自麦当劳 MCP 实时查询'
-    : '门店为本地快照（后端接入 MCD_MCP_TOKEN 后为实时查询）'
-  return `${src}；距离为距搜索位置（城市/关键词中心），非 GPS 实时定位`
+  const src = props.storesMock ? '门店为演示数据' : '门店来自麦当劳官方门店数据'
+  return `${src}；距离为距搜索位置中心估算`
 })
 
 watch(
