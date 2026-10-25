@@ -37,6 +37,19 @@ const parsePreview = computed(() => {
   return parseQuery(query.value)
 })
 
+// 识别到结构化约束就同步回填表单控件，避免「文本里是 80，滑块停在 150」的误导
+watch(query, (q) => {
+  if (!q.trim()) return
+  const p = parseQuery(q)
+  if (p.budget != null) form.budget = p.budget
+  if (p.people != null) form.people = p.people
+  if (p.calorie_limit != null) {
+    form.useCalorie = true
+    form.calorie_limit = p.calorie_limit
+  }
+  if (p.excluded.length) form.excluded = [...new Set([...form.excluded, ...p.excluded])]
+})
+
 function toggleExclude(w) {
   const i = form.excluded.indexOf(w)
   if (i >= 0) form.excluded.splice(i, 1)
