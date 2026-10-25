@@ -266,7 +266,8 @@
         "carbohydrate": 41,
         "sodium": 53,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "3010",
@@ -291,7 +292,8 @@
         "carbohydrate": 26,
         "sodium": 29,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "3505",
@@ -644,7 +646,8 @@
         "carbohydrate": 17,
         "sodium": 87,
         "calcium": 270
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "510488",
@@ -815,7 +818,8 @@
         "carbohydrate": 29,
         "sodium": 17,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "515520",
@@ -840,7 +844,8 @@
         "carbohydrate": 27,
         "sodium": 0,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "515837",

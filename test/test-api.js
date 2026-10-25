@@ -65,12 +65,64 @@ const post = (base, route, payload) => call(base, route, {
   assert.equal(seen.size, 3);
   assert.ok(prices.cheapest <= prices.balanced);
 
+  // ---- v2 融合新增能力：以下任一失败都意味着「换了解法但没接通」 ----
+
+  // 1) 正向诉求 wants：数量是硬约束，绝不能静默忽略（静默忽略会返回「成功但没有用户点名的商品」）
+  const wantPlan = await post(base, '/api/plan', {
+    ...baseBody,
+    constraints: { ...baseBody.constraints, wants: [{ keyword: '麦香鸡', qty: 2 }] },
+  });
+  assert.equal(wantPlan.status, 200);
+  assert.equal(wantPlan.body.success, true);
+  const wantQty = wantPlan.body.items
+    .filter((i) => i.name.includes('麦香鸡'))
+    .reduce((n, i) => n + i.quantity, 0);
+  assert.equal(wantQty, 2, '正向诉求数量必须是硬约束：方案里没有恰好 2 件麦香鸡');
+  assert.match(wantPlan.body.suggestion, /已严格按数量包含/, '未回传「已严格按数量包含」说明');
+
+  // 2) 多方案 plans（1~3 个），plans[0] 必须与顶层主方案一致
+  const plans = wantPlan.body.plans;
+  assert.ok(Array.isArray(plans) && plans.length >= 1 && plans.length <= 3, `plans 应为 1~3 个，实际 ${plans && plans.length}`);
+  assert.equal(
+    plans[0].items.map((i) => `${i.code}x${i.quantity}`).join('|'),
+    wantPlan.body.items.map((i) => `${i.code}x${i.quantity}`).join('|'),
+    'plans[0] 必须与顶层主方案一致'
+  );
+  for (const p of plans) assert.ok(p.label && p.strategy, '方案缺 label / strategy');
+
+  // 3) objective 别名归一：文档历史写法 lowest_price 不应被 400 拒绝
+  const alias = await post(base, '/api/plan', { ...baseBody, objective: 'lowest_price' });
+  assert.equal(alias.status, 200);
+  assert.equal(alias.body.objective, 'cheapest');
+
+  // 4) 第四种 objective：预算吃满
+  const maxValue = await post(base, '/api/plan', { ...baseBody, objective: 'max_value' });
+  assert.equal(maxValue.status, 200);
+  assert.equal(maxValue.body.objective, 'max_value');
+
+  // 5) 品类级忌口：饮料 → 饮品整类过滤（v1 只能按原料词子串匹配，整类过滤不掉）
+  const noDrink = await post(base, '/api/plan', {
+    ...baseBody,
+    constraints: { ...baseBody.constraints, excluded: ['饮料'] },
+  });
+  assert.equal(noDrink.status, 200);
+  assert.ok(noDrink.body.items.every((i) => i.category !== '饮品'), '品类忌口「饮料」未生效，方案里仍有饮品');
+
+  // 6) 非法 wants 必须 400：静默丢弃会让前端以为诉求已生效
+  const badWant = await post(base, '/api/plan', {
+    ...baseBody,
+    constraints: { ...baseBody.constraints, wants: [{ keyword: '麦香鸡', qty: 99 }] },
+  });
+  assert.equal(badWant.status, 400);
+  assert.equal(badWant.body.error.code, 'BAD_REQUEST');
+
   // 三态之二：无解。必须带 conflict/hint，且仍是 HTTP 200（前端不能只看状态码）
   const noSolution = await post(base, '/api/plan', { storeCode: '1450713', constraints: { budget: 15, people: 3, excluded: [] } });
   assert.equal(noSolution.status, 200);
   assert.equal(noSolution.body.success, false);
   assert.ok(noSolution.body.conflict && noSolution.body.hint);
-  assert.equal(noSolution.body.error, undefined);
+  // /api/plan 走 buildPayload 后与落盘同构，无解态的 error 恒为 null（不再像直接返回 solver 结果时那样是 undefined）
+  assert.ok(!noSolution.body.error, '无解态不应携带 error 对象（error 是参数/数据异常专属）');
 
   // 三态之三：异常/参数错误。
   const bad = await post(base, '/api/plan', { storeCode: '1450713', constraints: { budget: -1, people: 2 } });
@@ -100,7 +152,20 @@ const post = (base, route, payload) => call(base, route, {
   assert.ok(stores.body.items.length >= 1);
 
   server.close();
-  console.log(JSON.stringify({ ok: true, plan: { items: plan.body.items.map((i) => `${i.name}x${i.quantity}`), plan: plan.body.plan }, prices, noSolution: { conflict: noSolution.body.conflict, hint: noSolution.body.hint } }, null, 2));
+  console.log(JSON.stringify({
+    ok: true,
+    plan: { items: plan.body.items.map((i) => `${i.name}x${i.quantity}`), plan: plan.body.plan },
+    prices,
+    fusion: {
+      wantQty,
+      plans: plans.length,
+      planLabels: plans.map((p) => p.label),
+      aliasLowestPrice: alias.body.objective,
+      maxValue: maxValue.body.objective,
+      noDrinkCategories: [...new Set(noDrink.body.items.map((i) => i.category))],
+    },
+    noSolution: { conflict: noSolution.body.conflict, hint: noSolution.body.hint },
+  }, null, 2));
 })().catch((e) => {
   console.error('测试失败：', e.message);
   process.exit(1);

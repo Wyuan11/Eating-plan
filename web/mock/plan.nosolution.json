@@ -4,14 +4,15 @@
   "status": "nosolution",
   "request": {
     "storeCode": "1450713",
-    "storeName": null,
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "constraints": {
       "budget": 15,
       "calorie_limit": null,
       "people": 3,
       "excluded": []
     },
-    "intent": "三个人吃午饭，预算只有15元"
+    "intent": "三个人吃午饭，预算只有15元",
+    "notes": []
   },
   "success": false,
   "message": "约束过严，无法生成可行方案",
@@ -19,17 +20,20 @@
   "plan": null,
   "items": [],
   "nutrition": null,
+  "plans": [],
   "alternatives": [],
   "suggestion": null,
   "reason": "在当前可信单品池内，3 份主食的最低价格为 51 元，最低热量为 975 kcal（两项下界可能来自不同组合）；当前约束下没有可行组合",
   "conflict": "预算 vs 人数",
   "hint": "保留当前热量上限，预算提高到 51 元即可组成主食方案",
   "error": null,
-  "source_note": "数据来自麦当劳官方菜单与营养数据",
+  "source_note": "基于输入菜单快照及其标注的官方营养数据；未实时核价",
+  "coupons": null,
   "meta": {
     "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-nosolution",
-    "elapsedMs": 3
+    "elapsedMs": 2
   }
 }

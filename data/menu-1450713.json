@@ -1,7 +1,9 @@
 {
   "success": true,
   "store": {
-    "code": "1450713"
+    "code": "1450713",
+    "name": "麦当劳上海黄浦华旭国际大厦餐厅",
+    "address": "南京东路街道西藏中路336号"
   },
   "count": 125,
   "items": [
@@ -264,7 +266,8 @@
         "carbohydrate": 41,
         "sodium": 53,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "3010",
@@ -289,7 +292,8 @@
         "carbohydrate": 26,
         "sodium": 29,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "3505",
@@ -642,7 +646,8 @@
         "carbohydrate": 17,
         "sodium": 87,
         "calcium": 270
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "510488",
@@ -813,7 +818,8 @@
         "carbohydrate": 29,
         "sodium": 17,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "515520",
@@ -838,7 +844,8 @@
         "carbohydrate": 27,
         "sodium": 0,
         "calcium": 0
-      }
+      },
+      "temperature": "cold"
     },
     {
       "code": "515837",
@@ -2660,7 +2667,7 @@
     "hitRate": "63%"
   },
   "meta": {
-    "generatedAt": "2026-10-24T06:58:54.157Z",
+    "generatedAt": "2026-10-24T07:59:06.011Z",
     "source": "mcd-mcp query-meals + list-nutrition-foods"
   }
 }

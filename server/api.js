@@ -27,7 +27,8 @@ const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { solve, OBJECTIVES } = require('./solver');
+const { solve, OBJECTIVES, OBJECTIVE_ALIASES } = require('./solver');
+const { buildPayload } = require('./emit-plan');
 
 const PORT = Number(process.env.PORT || 8787);
 const DEFAULT_STORE = process.env.DEFAULT_STORE || '1450713';
@@ -160,19 +161,33 @@ function pickConstraints(body) {
     calorie_limit: box.calorie_limit ?? box.calorieLimit ?? null,
     people: box.people ?? 1,
     excluded: box.excluded ?? [],
+    // v2：正向诉求「想吃 X × N」，数量是硬约束。不传即空数组，行为与加之前完全一致。
+    wants: box.wants ?? [],
   };
 }
 
 function validate(body) {
   const storeCode = typeof body?.storeCode === 'string' && body.storeCode.trim() ? body.storeCode.trim() : DEFAULT_STORE;
   const c = pickConstraints(body);
-  const objective = body?.objective ?? c.objective ?? 'balanced';
+  // objective 走 solver 的别名表归一：文档/前端历史写法 lowest_price、save、lowcal、value
+  // 都能落到规范值，不再因为命名口径不一致被 400 拒绝。
+  const rawObjective = body?.objective ?? c.objective ?? 'balanced';
+  const objective = OBJECTIVE_ALIASES[rawObjective] || rawObjective;
   if (!OBJECTIVES.includes(objective)) return { error: `objective 必须是 ${OBJECTIVES.join(' / ')}` };
   if (typeof c.budget !== 'number' || !Number.isFinite(c.budget) || c.budget <= 0) return { error: 'constraints.budget 必须为大于 0 的数字' };
   if (!Number.isInteger(c.people) || c.people < 1 || c.people > 6) return { error: 'constraints.people 必须为 1～6 的整数' };
   if (c.calorie_limit !== null && (typeof c.calorie_limit !== 'number' || !Number.isFinite(c.calorie_limit) || c.calorie_limit <= 0)) return { error: 'constraints.calorie_limit 必须为正数或 null' };
   if (!Array.isArray(c.excluded) || c.excluded.some((k) => typeof k !== 'string')) return { error: 'constraints.excluded 必须为字符串数组' };
-  return { value: { storeCode, objective, constraints: { budget: c.budget, calorie_limit: c.calorie_limit, people: c.people, excluded: c.excluded } } };
+  // 正向诉求：{ keyword, qty } 列表，qty 1~12。格式错误要报 400，不能静默丢弃——
+  // 静默丢弃会让前端以为诉求已生效，拿到一个「成功但不含用户点名商品」的方案。
+  if (!Array.isArray(c.wants)) return { error: 'constraints.wants 必须为数组' };
+  for (const w of c.wants) {
+    const kw = typeof w === 'string' ? w : w?.keyword;
+    const qty = typeof w === 'string' ? 1 : Math.floor(Number(w?.qty ?? 1));
+    if (typeof kw !== 'string' || !kw.trim()) return { error: 'constraints.wants[].keyword 必须为非空字符串' };
+    if (!Number.isInteger(qty) || qty < 1 || qty > 12) return { error: `constraints.wants[].qty 必须为 1~12 的整数：${kw}` };
+  }
+  return { value: { storeCode, objective, constraints: { budget: c.budget, calorie_limit: c.calorie_limit, people: c.people, excluded: c.excluded, wants: c.wants } } };
 }
 
 // ---------------------------------------------------------------- 路由
@@ -185,29 +200,38 @@ async function handlePlan(req, res) {
   if (parsed.error) return send(res, 400, fail('BAD_REQUEST', parsed.error, false, baseMeta(body?.storeCode || DEFAULT_STORE)));
 
   const { storeCode, objective, constraints } = parsed.value;
-  const meta = baseMeta(storeCode, { traceId: `plan-${crypto.randomUUID()}` });
+  const traceId = `plan-${crypto.randomUUID()}`;
+  const meta = baseMeta(storeCode, { traceId });
 
   const loaded = await ensureMenu(storeCode);
   if (loaded.error) return send(res, loaded.code === 'NOT_FOUND' ? 404 : 503, fail(loaded.code, loaded.error, loaded.retryable, meta));
 
-  let result;
+  // 走 emit-plan 的 buildPayload 而不是直接 solve：
+  // 1) 三态判定（success / nosolution / error）只有那一处实现，避免这里再写一遍判断逻辑而走偏；
+  //    直接返回 solve 的原始结果时，响应里是 success:true 而没有 status，
+  //    与 Skill 落盘的 plan-*.json（status 三态）不是一套结构，前端被迫吃两种形状。
+  // 2) 响应结构与 Skill 落盘完全一致，前端一套解析吃两个来源（HTTP 与文件桥）。
+  // 3) payload 仍带 success 字段，旧调用方不受影响。
+  let payload;
   try {
-    result = solve(loaded.menu.items, {
+    payload = buildPayload({
+      traceId,
       storeCode,
-      storeName: loaded.menu.store?.name,
+      intent: typeof body?.intent === 'string' ? body.intent : '',
       objective,
-      budget: constraints.budget,
-      calorie_limit: constraints.calorie_limit,
-      people: constraints.people,
-      excluded: constraints.excluded,
-    }, { maxNodes: MAX_NODES });
+      constraints,
+      // 调用方（如 Skill 侧）传入的未生效偏好披露；求解器自己产生的 notes 会在内部合并
+      notes: Array.isArray(body?.notes) ? body.notes : [],
+      menu: loaded.menu, // 已读过就传进来，避免每次请求重复读文件
+      options: { maxNodes: MAX_NODES }, // 搜索节点上限保护，防止病态输入把服务拖死
+    });
   } catch (e) {
     return send(res, 500, fail('INTERNAL_ERROR', `求解异常: ${e.message}`, false, meta));
   }
 
-  // 三态原样透传：success PlanSuccess / conflict 无解 / error 异常，均返回 HTTP 200
-  result.meta = { ...result.meta, ...meta, ...(result.meta || {}), menuFile: loaded.file, cacheHit: loaded.cacheHit };
-  return send(res, 200, result);
+  // 三态原样透传：success / nosolution / error 均返回 HTTP 200，前端按 status 分支
+  payload.meta = { ...(payload.meta || {}), ...meta, menuFile: loaded.file, cacheHit: loaded.cacheHit };
+  return send(res, 200, payload);
 }
 
 function handleMenu(req, res, url) {

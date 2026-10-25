@@ -44,8 +44,33 @@ export const CALORIE_SOURCE_LABEL = {
  * @property {{storeName:string,storeCode:string,traceId:string,generatedAt:string}} meta
  */
 
-/** 忌口可选项（品名/标签子串 + 忌口特征词匹配），与后端 excluded 语义对齐 */
-export const EXCLUDE_OPTIONS = ['辣', '牛肉', '猪肉', '鸡肉', '鱼', '海鲜', '洋葱', '葱', '蒜', '蛋', '奶', '花生', '芝麻', '坚果', '芥末', '香菜'];
+/**
+ * 忌口可选项（与后端 solver.js 的 excluded 语义严格对齐）
+ *
+ * 分三类，求解器处理方式不同：
+ *   1) 原料词（辣/牛肉/…）      → tag 精确匹配 + 品名包含
+ *   2) 品类词（饮料/甜品）      → 按 category 整类过滤（solver CATEGORY_ALIASES：饮料→饮品）
+ *   3) 温度词（冰饮/冷饮/热饮） → 仅当菜单有 temperature 字段才生效，
+ *                                否则求解器只在 notes 里如实披露「无法执行」，绝不猜冷热
+ * 「咖啡」是子类标签词，走 tag.includes 单向匹配，用于命中「麦咖啡™咖啡」这类长标签。
+ */
+export const EXCLUDE_OPTIONS = [
+  // 原料 / 过敏原（成品原有，覆盖更细，保留）
+  '辣', '牛肉', '猪肉', '鸡肉', '鱼', '海鲜', '洋葱', '葱', '蒜', '蛋', '奶', '花生', '芝麻', '坚果', '芥末', '香菜',
+  // 品类级整类过滤（来自 v2）
+  '饮料', '甜品',
+  // 温度级（来自 v2；无数据时如实披露而非静默失效）
+  '冰饮', '冷饮', '热饮',
+  // 子类标签（来自 v2）
+  '咖啡',
+];
+
+/** 快捷示例（空态 / 演示用），点击即回填表单 */
+export const QUICK_PRESETS = [
+  { label: '两人减脂 · 不吃辣', query: '两个女生，预算 60，在减脂，不吃辣，想低卡又划算', constraints: { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] } },
+  { label: '一人省钱 · 不设热量', query: '我一个人，预算 40，想吃顿划算的', constraints: { budget: 40, calorie_limit: null, people: 1, excluded: [] } },
+  { label: '多人 · 多重忌口', query: '三个人，预算 80，不吃辣和牛肉', constraints: { budget: 80, calorie_limit: 1000, people: 3, excluded: ['辣', '牛肉'] } },
+];
 
 export const DEFAULT_STORE = {
   code: '1450713',

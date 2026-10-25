@@ -4,8 +4,8 @@
  *   node scripts/demo-check.js            # 离线自检（不需要 Token）
  *   node scripts/demo-check.js --online   # 额外实测 MCP 连通性（需要 MCD_MCP_TOKEN）
  *
- * 检查项：Node 版本 / 关键文件 / 菜单健康 / solver 三态 / Mock 与真实结构一致 /
- *         文件桥 HTTP 接口 / （可选）MCP 连通性
+ * 检查项：Node 版本 / 关键文件 / 菜单健康 / solver 三态 / 多方案 1~3 个 /
+ *         Mock 与真实结构一致 / 文件桥 HTTP 接口 / 后端 API / （可选）MCP 连通性
  * 退出码 0 = 可演示，1 = 有阻塞项。
  */
 
@@ -53,6 +53,32 @@ function get(url) {
   });
 }
 
+/** POST JSON。自检里只用来打本地服务，超时 5 秒足够。 */
+function post(url, payload) {
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(payload);
+    const u = new URL(url);
+    const req = http.request(
+      {
+        hostname: u.hostname,
+        port: u.port,
+        path: u.pathname,
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) },
+      },
+      (res) => {
+        let body = '';
+        res.on('data', (c) => (body += c));
+        res.on('end', () => resolve({ status: res.statusCode, body }));
+      },
+    );
+    req.on('error', reject);
+    req.setTimeout(5000, () => reject(new Error('请求超时')));
+    req.write(data);
+    req.end();
+  });
+}
+
 async function main() {
   console.log('=== 麦门智选助手 · 演示前自检 ===\n');
 
@@ -68,7 +94,7 @@ async function main() {
     const need = [
       'server/mcp-client.js', 'server/fetch-menu.js', 'server/solver.js',
       'server/emit-plan.js', 'server/outbox.js', 'server/bridge.js',
-      'server/trigger-skill.js', 'server/verify-mcp.js',
+      'server/trigger-skill.js', 'server/verify-mcp.js', 'server/api.js',
       'web/mock/menu.json', 'web/mock/plan.success.json',
       'web/mock/plan.nosolution.json', 'web/mock/plan.error.json',
       'web/src/types.ts',
@@ -104,6 +130,25 @@ async function main() {
     const err = solve(menu.items, { budget: 0, people: 1, storeCode: '1450713' });
     assert(!err.success && err.error, '参数错误场景未返回 error');
     return `有解 ¥${ok.plan.total_price}/${ok.plan.total_calorie}kcal`;
+  });
+
+  // 4b. 多方案（v1.2）：1～3 个策略化方案，全部满足同一组约束且互不相同
+  check('多方案可用（1~3 个）', () => {
+    const { solve } = require(path.join(ROOT, 'server/solver'));
+    const c = { budget: 60, calorie_limit: 1400, people: 2, excluded: ['饮料'], storeCode: '1450713' };
+    const r = solve(menu.items, c);
+    assert(r.success && Array.isArray(r.plans), '成功态必须返回 plans 数组');
+    assert(r.plans.length >= 1 && r.plans.length <= 3, `方案数量应为 1~3，实际 ${r.plans.length}`);
+    const sig = new Set();
+    for (const p of r.plans) {
+      assert(p.plan && Array.isArray(p.items) && p.items.length, `方案 ${p.key} 缺 items`);
+      assert(p.plan.total_price <= c.budget + 1e-9, `${p.label} 超预算：${p.plan.total_price} > ${c.budget}`);
+      if (c.calorie_limit != null) assert(p.plan.total_calorie <= c.calorie_limit, `${p.label} 超热量上限`);
+      assert(p.label && p.strategy, `方案 ${p.key} 缺 label/strategy`);
+      sig.add(p.items.map((i) => `${i.code}x${i.quantity}`).join('|'));
+    }
+    assert(sig.size === r.plans.length, '存在重复方案（应去重）');
+    return r.plans.map((p) => `${p.label} ¥${p.plan.total_price}`).join(' / ');
   });
 
   // 5. Mock 与真实落盘结构一致（漂移会让前端接上就崩）
@@ -144,7 +189,38 @@ async function main() {
     }
   });
 
-  // 7. MCP 连通性（可选，需要 Token）
+  // 7. 后端 API（server/api.js，前端 /api 代理指向 3000）
+  await checkAsync('后端 API 可用', async () => {
+    const { start } = require(path.join(ROOT, 'server/api.js'));
+    const server = await start(0);
+    const base = `http://127.0.0.1:${server.address().port}`;
+    try {
+      const health = await get(`${base}/api/health`);
+      assert(health.status === 200, `/api/health 返回 ${health.status}`);
+      const r = await post(`${base}/api/plan`, {
+        storeCode: '1450713',
+        constraints: { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] },
+      });
+      assert(r.status === 200, `/api/plan 返回 ${r.status}`);
+      const body = JSON.parse(r.body);
+      assert(body.status === 'success', `/api/plan 应为 success，实际 ${body.status}`);
+      // 与 Skill 落盘必须是同一套结构，前端才能只写一份解析
+      const { buildPayload } = require(path.join(ROOT, 'server/emit-plan'));
+      const real = buildPayload({ traceId: 'check-api', constraints: { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] } });
+      const diff = Object.keys(real).filter((k) => !(k in body));
+      assert(diff.length === 0, `/api/plan 响应缺少字段：${diff.join(',')}`);
+      assert(body.request?.constraints?.budget === 60, 'request.constraints 未回传，前端约束面板会空');
+      const no = JSON.parse((await post(`${base}/api/plan`, { constraints: { budget: 15, people: 3 } })).body);
+      assert(no.status === 'nosolution', `无解场景 status 应为 nosolution，实际 ${no.status}`);
+      const bad = await post(`${base}/api/plan`, { constraints: { budget: 0, people: 1 } });
+      assert(bad.status === 400, `参数错误应返回 400，实际 ${bad.status}`);
+      return `¥${body.plan.total_price}/${body.plan.total_calorie}kcal，三态 + 契约一致`;
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  // 8. MCP 连通性（可选，需要 Token）
   if (ONLINE) {
     await checkAsync('MCP 连通性', async () => {
       assert(process.env.MCD_MCP_TOKEN, '未设置 MCD_MCP_TOKEN');
@@ -167,7 +243,9 @@ async function main() {
     console.log('\n结论：暂不具备演示条件，先修上面几项。');
     process.exit(1);
   }
-  console.log('结论：可以演示。启动 `node server/bridge.js --port 8787` 供前端取数据。');
+  console.log('结论：可以演示。');
+  console.log('  后端服务（前端 /api 代理）：node server/api.js        # 3000');
+  console.log('  Skill 方案文件桥（Web 轮询）：node server/bridge.js  # 8787');
 }
 
 main().catch((e) => {

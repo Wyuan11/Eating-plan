@@ -73,6 +73,7 @@ function resetTweaks() {
   custom.value = []
 }
 
+const notes = computed(() => props.result.request?.notes || [])
 const near = (a, b) => Math.abs((a || 0) - (b || 0)) < 0.01
 
 /** 统一口径：不管有没有手动微调，都按 adjustedItems 逐项重算，再与声明值、约束两头比对 */
@@ -154,6 +155,11 @@ function fmtTime(iso) {
       <template v-else>ℹ️ <span>{{ fallbackReason }}</span></template>
     </div>
 
+    <!-- 已记录但无法参与求解的诉求（如「不要冰饮」菜单无温度数据）：如实披露，不静默丢弃 -->
+    <div v-for="n in notes" :key="n.text" class="note-banner" role="status">
+      📌 「{{ n.text }}」—— {{ n.reason }}
+    </div>
+
     <!-- 超标拦截（关键职责）：微调后同样生效 -->
     <div v-if="check.overBudget || check.overCalorie" class="alert-over" role="alert">
       <div class="alert-over__icon">⚠</div>
@@ -224,6 +230,9 @@ function fmtTime(iso) {
       </section>
     </div>
 
+    <!-- 下单面板已按决策移除：参赛红线不调 create-order、不真实支付。
+         若日后要恢复，需同时迁移 server/order.js、OrderPanel.vue 与 /api/order。 -->
+
     <!-- 建议（主方案的解说；手动微调后口径已变，隐藏） -->
     <div v-if="isMain && !customized && result.suggestion" class="result__suggestion">
       <span class="result__suggestion-label">💡 建议</span>
@@ -249,6 +258,11 @@ function fmtTime(iso) {
 .mock-banner {
   display: flex; gap: 8px; align-items: center; padding: 10px 14px; font-size: 13px;
   background: #eef4ff; border: 1px solid #cfe0fb; border-radius: 12px; color: #1c5cab;
+}
+
+.note-banner {
+  padding: 10px 14px; font-size: 13px; line-height: 1.6;
+  background: #fff8e6; border: 1px solid #f0d89a; border-radius: 12px; color: #7a5300;
 }
 
 .alert-over {

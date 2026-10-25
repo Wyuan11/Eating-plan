@@ -4,14 +4,15 @@
   "status": "error",
   "request": {
     "storeCode": "1450713",
-    "storeName": null,
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "constraints": {
       "budget": 0,
       "calorie_limit": null,
       "people": 1,
       "excluded": []
     },
-    "intent": "预算0元"
+    "intent": "预算0元",
+    "notes": []
   },
   "success": false,
   "message": "求解失败",
@@ -19,6 +20,7 @@
   "plan": null,
   "items": [],
   "nutrition": null,
+  "plans": [],
   "alternatives": [],
   "suggestion": null,
   "reason": null,
@@ -30,8 +32,10 @@
     "retryable": false
   },
   "source_note": null,
+  "coupons": null,
   "meta": {
     "storeCode": "1450713",
+    "storeName": "麦当劳上海黄浦华旭国际大厦餐厅",
     "generatedAt": "2026-10-24T12:50:00.000Z",
     "traceId": "mock-error",
     "elapsedMs": 0

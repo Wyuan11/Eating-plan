@@ -1,6 +1,6 @@
 <script setup>
 import { computed, reactive, ref, watch } from 'vue'
-import { EXCLUDE_OPTIONS } from '../lib/schema.js'
+import { EXCLUDE_OPTIONS, QUICK_PRESETS } from '../lib/schema.js'
 import { parseQuery } from '../lib/parseQuery.js'
 
 const props = defineProps({
@@ -14,6 +14,8 @@ const props = defineProps({
 const emit = defineEmits(['submit', 'store-search'])
 
 const query = ref('')
+// 正向诉求（想吃 X × N）：从自然语言抽出，可手动删除；数量会作为硬约束传给求解器
+const wants = ref([])
 const form = reactive({
   budget: 60,
   people: 2,
@@ -118,17 +120,33 @@ const parsePreview = computed(() => {
   return parseQuery(query.value)
 })
 
+function removeWant(i) {
+  wants.value.splice(i, 1)
+}
+
 function toggleExclude(w) {
   const i = form.excluded.indexOf(w)
   if (i >= 0) form.excluded.splice(i, 1)
   else form.excluded.push(w)
 }
 
+// 快捷示例：点击即回填整句与结构化表单（演示时不用手打）
+function applyPreset(p) {
+  query.value = p.query
+  form.budget = p.constraints.budget
+  form.people = p.constraints.people
+  form.useCalorie = p.constraints.calorie_limit != null
+  form.calorie_limit = p.constraints.calorie_limit ?? 1200
+  form.excluded = [...(p.constraints.excluded || [])]
+}
+
 // 自然语言 → 结构化表单实时回填（输入即同步，表单是提交时的唯一权威来源）。
 // 这样手动划预算/改人数不会被文本里的旧数字覆盖（此前是提交时再 parse 文本去覆盖，导致滑块值「没保存」）。
 watch(query, (q) => {
-  if (!q || !q.trim()) return
+  // 清空输入时诉求 chips 也要一起消失，否则会残留上一次的诉求并提交给求解器
+  if (!q || !q.trim()) { wants.value = []; return }
   const p = parseQuery(q)
+  wants.value = p?.wants || []
   if (p.budget != null) form.budget = p.budget
   if (p.people != null) form.people = p.people
   if (p.calorie_limit != null) { form.useCalorie = true; form.calorie_limit = p.calorie_limit }
@@ -141,14 +159,19 @@ function buildConstraints() {
     people: Number(form.people) || 1,
     calorie_limit: form.useCalorie ? Number(form.calorie_limit) || null : null,
     excluded: [...form.excluded],
+    // 正向诉求：表单里没有对应控件，来源是自然语言解析出的 chips（可手动删除）
+    wants: wants.value.map((w) => ({ ...w })),
   }
 }
 
 function submit() {
+  const p = query.value.trim() ? parseQuery(query.value) : null
   emit('submit', {
     storeCode: storeCode.value,
     query: query.value.trim() || undefined,
     constraints: buildConstraints(),
+    // 目标词（划算/省钱等）→ 最省钱：与 constraints 平级，后端 /api/plan 顶层字段
+    objective: p?.objective || undefined,
   })
 }
 </script>
@@ -168,8 +191,16 @@ function submit() {
         已识别：<template v-if="parsePreview.budget">预算 ¥{{ parsePreview.budget }} · </template
         ><template v-if="parsePreview.people">{{ parsePreview.people }} 人 · </template
         ><template v-if="parsePreview.calorie_limit">热量上限 {{ parsePreview.calorie_limit }} 大卡 · </template
-        ><template v-if="parsePreview.excluded.length">忌口 {{ parsePreview.excluded.join('、') }}</template>
+        ><template v-if="parsePreview.excluded.length">忌口 {{ parsePreview.excluded.join('、') }}</template
+        ><template v-if="parsePreview.wants && parsePreview.wants.length"> · 想吃 {{ parsePreview.wants.map((w) => w.keyword + '×' + w.qty).join('、') }}</template>
       </p>
+    </section>
+
+    <!-- 快捷示例（点击即回填，演示用） -->
+    <section class="form__presets">
+      <button v-for="p in QUICK_PRESETS" :key="p.label" class="preset" type="button" @click="applyPreset(p)">
+        {{ p.label }}
+      </button>
     </section>
 
     <!-- 结构化约束 -->
@@ -205,6 +236,23 @@ function submit() {
         type="number" class="form__num form__num--full"
         min="200" max="3000" step="50" placeholder="如 1200"
       />
+    </section>
+
+    <!-- 正向诉求：数量是硬约束，可手动删除 -->
+    <section v-if="wants.length" class="form__block">
+      <span class="form__label">想吃（数量按需求严格执行）</span>
+      <div class="form__chips">
+        <button
+          v-for="(w, i) in wants"
+          :key="w.keyword"
+          class="chip chip--want"
+          type="button"
+          :title="'点击移除该诉求'"
+          @click="removeWant(i)"
+        >
+          🍽️ {{ w.keyword }} ×{{ w.qty }} ✕
+        </button>
+      </div>
     </section>
 
     <section class="form__block">
@@ -267,6 +315,14 @@ textarea:focus { outline: none; border-color: var(--brand); box-shadow: 0 0 0 3p
 
 .form__preview { margin: 0; font-size: 12.5px; color: var(--categorical-3, #1baf7a); font-weight: 600; }
 
+.form__presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.preset {
+  font-size: 12px; padding: 6px 10px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border); background: var(--wash); color: var(--ink-secondary);
+  transition: all .15s; font: inherit;
+}
+.preset:hover { border-color: var(--brand-soft); color: var(--brand); background: #fff5f3; }
+
 .form__slider { display: flex; align-items: center; gap: 12px; }
 input[type="range"] { flex: 1; accent-color: var(--brand); }
 
@@ -305,6 +361,12 @@ input[type="range"] { flex: 1; accent-color: var(--brand); }
   background: var(--card); font: inherit; font-size: 13px; color: var(--ink-secondary); transition: all .15s;
 }
 .chip.active { border-color: var(--brand); background: var(--brand); color: #fff; font-weight: 600; }
+/* 正向诉求 chip：可点击删除，颜色区别于忌口（忌口=实心品牌色，诉求=描边绿） */
+.chip--want {
+  border-color: var(--categorical-3, #1baf7a); color: var(--categorical-3, #1baf7a);
+  background: transparent; font-weight: 600;
+}
+.chip--want:hover { background: rgba(27, 175, 122, .1); }
 
 .form__select {
   width: 100%; box-sizing: border-box; border: 1px solid var(--border); border-radius: 10px;
