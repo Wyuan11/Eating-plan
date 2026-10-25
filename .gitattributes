@@ -13,3 +13,6 @@
 # 这一条保证 git 钩子在 Windows / macOS / Linux 上都能正常执行
 *.sh text eol=lf
 githooks/* text eol=lf
+
+# Windows 批处理必须 CRLF：LF 行尾可能导致批处理解析异常
+*.bat text eol=crlf
