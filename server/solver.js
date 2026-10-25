@@ -148,9 +148,13 @@ function solve(menuItems, c = {}, options = {}) {
     // v1.1: objective selects which searched plan becomes the main plan.
     const picks = { balanced: best, cheapest, lowest_calorie: lightest };
     const top = picks[objective];
-    const toPlanItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity, nutrition: i.nutrition, tags: i.tags });
-    // v1.1: alternatives now carry code/quantity/calorie_source, so they are orderable and verifiable.
-    const toAltItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity });
+    const toPlanItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity, nutrition: i.nutrition, image: i.image ?? null, tags: i.tags });
+    // v1.1: alternatives now carry code/quantity/calorie_source/nutrition/image, so they are orderable, verifiable and fully renderable.
+    const toAltItem = i => ({ code: i.code, name: i.name, price: i.price, calorie: i.calorie, calorie_source: i.calorie_source, category: i.category, quantity: i.quantity, nutrition: i.nutrition, image: i.image ?? null });
+    // 品类构成摘要：让「5 个汉堡、2 杯饮品」这类口径直接出现在建议里
+    const byCat = {};
+    for (const i of top.list) byCat[i.category] = (byCat[i.category] || 0) + i.quantity;
+    const catDesc = Object.entries(byCat).map(([k, n]) => `${k}×${n}`).join(' · ');
     const used = new Set([signature(top)]), alternatives = [];
     for (const key of OBJECTIVES) {
       if (key === objective) continue;
@@ -161,7 +165,7 @@ function solve(menuItems, c = {}, options = {}) {
     }
     const items = top.list.map(toPlanItem);
     return { success: true, message: '推荐完成', objective, constraints, plan: top.plan, items, nutrition: top.nutrition, alternatives,
-      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
+      suggestion: `共 ${items.reduce((n, i) => n + i.quantity, 0)} 件（${catDesc}）；在 ${candidates} 个可行组合中按「${OBJECTIVE_LABELS[objective]}」选出。搜索范围为每人恰好一份主食及 0～3 件配餐，允许重复购买。价格和营养由单品乘数量汇总；未知热量商品未参与。金额为菜单快照估价，下单前需重新核价。`,
       source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta };
   } catch (e) {
     return error('INTERNAL_ERROR', e.limit ? e.message : `数据或计算异常: ${e.message}`);
