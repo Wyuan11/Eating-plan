@@ -46,3 +46,6 @@ bundles/
 Thumbs.db
 .vscode/
 .idea/
+
+# ---------- 嵌套的独立 git 仓库（不作为本项目子模块提交）----------
+final Eating plan/
