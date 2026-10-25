@@ -56,7 +56,9 @@ const cheapest = probe('cheapest'), lowCal = probe('lowest_calorie');
 verify(cheapest); verify(lowCal);
 assert.equal(cheapest.objective, 'cheapest');
 assert.equal(lowCal.objective, 'lowest_calorie');
-assert.equal(main.plan.total_price, 57.9);
+// 主方案（balanced）的数值锚点：与 docs/api-schema.md 记录的 v1.1 结果一致（¥56.9 / 962kcal）。
+// 注意：门店菜单是动态的，刷新 data/menu-1450713.json 后若数值变化，需同步这里与文档。
+assert.equal(main.plan.total_price, 56.9);
 assert.ok(cheapest.plan.total_price <= main.plan.total_price);
 assert.ok(lowCal.plan.total_calorie <= main.plan.total_calorie);
 for (const r of [main, cheapest, lowCal]) {

@@ -40,6 +40,10 @@ if exist ".env" (
   )
 )
 
+REM Free ports 3000/5173 first, so re-running really restarts (kills stale instances).
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":3000" ^| findstr "LISTENING"') do taskkill /F /PID %%P >nul 2>nul
+for /f "tokens=5" %%P in ('netstat -ano ^| findstr ":5173" ^| findstr "LISTENING"') do taskkill /F /PID %%P >nul 2>nul
+
 REM Backend must listen on 3000 to match the Vite /api proxy.
 set "PORT=3000"
 

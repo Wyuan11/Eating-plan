@@ -52,6 +52,18 @@ function searchStores() {
   emit('store-search', { city: cityInput.value.trim(), keyword: keywordInput.value.trim() })
 }
 
+// 从 display_name（如「…, 鹿城区, 温州市, 浙江省, …」）里提取「X市」这一级。
+// 中国地址里 Nominatim 常把「区」放进 address.city（如 鹿城区），真正的市只出现在 display_name，
+// 导致定位后拿到「鹿城区」而非「温州」，门店快照按城市名匹配就落空了。
+function cityFromDisplayName(displayName) {
+  if (!displayName) return ''
+  const segs = String(displayName).split(',').map((s) => s.trim())
+  for (const seg of segs) {
+    if (/市$/.test(seg) && !/省$/.test(seg)) return seg
+  }
+  return ''
+}
+
 async function reverseGeocode(lat, lon) {
   const urls = [
     `https://photon.komoot.io/reverse?lon=${lon}&lat=${lat}&lang=zh`,
@@ -64,7 +76,7 @@ async function reverseGeocode(lat, lon) {
       const j = await res.json()
       const p = j.features?.[0]?.properties || j.address || null
       if (!p) continue
-      const city = p.city || p.town || p.county || p.state || p.province
+      const city = cityFromDisplayName(j.display_name) || p.city || p.town || p.county || p.state || p.province
       if (!city) continue
       // 更精确：优先取城区/街道级定位作为搜索关键词，让「附近」尽量贴近用户
       const keyword = (p.district || p.suburb || p.neighbourhood || p.name || '').replace(/市$/, '')

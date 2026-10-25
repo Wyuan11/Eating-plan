@@ -5,6 +5,9 @@ const { toFen } = require('../server/solver');
 
 const MENU = process.argv[2];
 if (!MENU) throw new Error('用法: node test-api.js <menu.json路径>');
+// 菜品数量从传入的菜单快照读，不写死：门店菜单是动态的（实测过 125→129），
+// 写死数字会在刷新菜单后误报失败。
+const MENU_COUNT = JSON.parse(require('node:fs').readFileSync(MENU, 'utf8')).items.length;
 process.env.MENU_FILE = MENU;
 process.env.PORT = '0';
 const { start } = require('../server/api');
@@ -26,12 +29,12 @@ const post = (base, route, payload) => call(base, route, {
   assert.equal(health.status, 200);
   assert.equal(health.body.ok, true);
   assert.equal(health.body.menu.available, true);
-  assert.equal(health.body.menu.count, 124);
+  assert.equal(health.body.menu.count, MENU_COUNT);
 
   const menuRes = await call(base, '/api/menu?storeCode=1450713');
   assert.equal(menuRes.status, 200);
   assert.equal(menuRes.body.success, true);
-  assert.equal(menuRes.body.items.length, 124);
+  assert.equal(menuRes.body.items.length, MENU_COUNT);
   assert.equal(menuRes.headers.get('access-control-allow-origin'), '*');
 
   // 三态之一：成功。所有汇总值必须由 items 重算复现。
