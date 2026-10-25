@@ -30,7 +30,7 @@ export async function getStores(params = {}) {
     const res = await fetchWithTimeout(`/api/stores?${qs}`, {}, STORES_TIMEOUT);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    const list = Array.isArray(data) ? data : data.stores || [];
+    const list = Array.isArray(data) ? data : data.items || [];
     return { data: list, mock: false };
   } catch {
     return { data: storesMock, mock: true };

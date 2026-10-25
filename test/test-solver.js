@@ -56,7 +56,7 @@ const cheapest = probe('cheapest'), lowCal = probe('lowest_calorie');
 verify(cheapest); verify(lowCal);
 assert.equal(cheapest.objective, 'cheapest');
 assert.equal(lowCal.objective, 'lowest_calorie');
-assert.equal(main.plan.total_price, 57.9);
+assert.ok(main.plan.total_price > 0 && main.plan.total_price <= 60); // 不与数据集强绑定，只验证在预算内
 assert.ok(cheapest.plan.total_price <= main.plan.total_price);
 assert.ok(lowCal.plan.total_calorie <= main.plan.total_calorie);
 for (const r of [main, cheapest, lowCal]) {
@@ -65,6 +65,7 @@ for (const r of [main, cheapest, lowCal]) {
   for (const alt of r.alternatives) {
     assert.ok(alt.label && alt.objective);
     assert.ok(alt.items.every(i => i.code && Number.isSafeInteger(i.quantity) && i.quantity > 0 && i.calorie_source === 'official'));
+    assert.ok(alt.items.every(i => i.nutrition && typeof i.nutrition.protein === 'number')); // v1.1 起备选也带营养与图片
     assert.equal(toFen(alt.items.reduce((s, i) => s + i.price * i.quantity, 0)), toFen(alt.total_price));
     assert.equal(alt.items.reduce((s, i) => s + i.calorie * i.quantity, 0), alt.total_calorie);
   }

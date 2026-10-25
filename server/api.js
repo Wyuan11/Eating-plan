@@ -28,7 +28,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { solve, OBJECTIVES } = require('./solver');
 
-const PORT = Number(process.env.PORT || 8787);
+const PORT = Number(process.env.PORT || 3000); // 前端 vite 代理指向 3000，默认值必须一致
 const DEFAULT_STORE = process.env.DEFAULT_STORE || '1450713';
 const MENU_FILE = process.env.MENU_FILE || null;
 const MENU_DIRS = (process.env.MENU_DIR ? [process.env.MENU_DIR] : []).concat(

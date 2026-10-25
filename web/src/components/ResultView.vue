@@ -26,9 +26,10 @@ const alt = computed(() =>
 )
 
 // 备选方案也独立重算一次，保持"不信任声明值"的一致口径
+// v1.1 起备选 items 自带 quantity，不能强制为 1
 const altCheck = computed(() => {
   if (!alt.value) return null
-  const items = (alt.value.items || []).map((it) => ({ ...it, quantity: 1 }))
+  const items = (alt.value.items || []).map((it) => ({ ...it, quantity: it.quantity || 1 }))
   const re = recompute(items)
   return {
     re,
@@ -88,8 +89,12 @@ const overCalorie = computed(
 )
 
 const altItems = computed(() =>
-  alt.value ? (alt.value.items || []).map((it, i) => ({ ...it, qty: 1, key: i })) : []
+  alt.value ? (alt.value.items || []).map((it, i) => ({ ...it, quantity: it.quantity || 1, tags: it.tags || [], key: it.code || i })) : []
 )
+
+const altCount = computed(() => altItems.value.reduce((n, it) => n + it.quantity, 0))
+
+const mainCount = computed(() => (props.result.items || []).reduce((n, it) => n + (it.quantity || 1), 0))
 
 function fmtTime(iso) {
   if (!iso) return '—'
@@ -166,7 +171,7 @@ function fmtTime(iso) {
           <NutritionRing :nutrition="activeView.nutrition" />
         </section>
         <section class="card items-card">
-          <h3 class="card__title">本方案菜品（{{ result.items.length }} 件）</h3>
+          <h3 class="card__title">本方案菜品（{{ mainCount }} 件）</h3>
           <div class="items">
             <ItemCard v-for="it in result.items" :key="it.code + '-' + it.quantity" :item="it" />
           </div>
@@ -178,23 +183,26 @@ function fmtTime(iso) {
       </div>
     </template>
 
-    <!-- 备选方案：轻量明细 -->
+    <!-- 备选方案：与主方案同构的完整视图（v1.1 起备选带 nutrition/image） -->
     <template v-else>
-      <section class="card">
-        <h3 class="card__title">「{{ alt.label }}」方案明细</h3>
-        <ul class="alt-list">
-          <li v-for="it in altItems" :key="it.key">
-            <span class="alt-list__name">{{ it.name }}</span>
-            <span class="alt-list__kcal">{{ it.calorie == null ? '—' : it.calorie + ' kcal' }}</span>
-            <span class="alt-list__price">¥{{ it.price.toFixed(1) }}</span>
-          </li>
-        </ul>
-        <div class="alt-total">
-          <span>合计</span>
-          <strong>¥{{ activeView.total_price.toFixed(1) }} · {{ activeView.total_calorie }} kcal</strong>
-        </div>
-        <p class="alt-note">备选方案仅含品项与总价/总热量，营养构成以「均衡推荐」主方案为准。</p>
-      </section>
+      <div class="result__grid">
+        <section class="card ring-card">
+          <h3 class="card__title">营养构成</h3>
+          <NutritionRing v-if="altCheck && altCheck.re.nutrition" :nutrition="altCheck.re.nutrition" />
+          <p v-else class="alt-note">营养数据不足，无法绘制</p>
+        </section>
+        <section class="card items-card">
+          <h3 class="card__title">「{{ alt.label }}」菜品（{{ altCount }} 件）</h3>
+          <div class="items">
+            <ItemCard v-for="it in altItems" :key="it.key + '-' + it.quantity" :item="it" />
+          </div>
+          <div class="alt-total">
+            <span>合计</span>
+            <strong>¥{{ activeView.total_price.toFixed(1) }} · {{ activeView.total_calorie }} kcal</strong>
+          </div>
+        </section>
+      </div>
+      <p class="alt-note">备选方案的原价/节省信息以「均衡推荐」主方案为准；其余字段与主方案同构，可直接下单。</p>
     </template>
 
     <!-- 审计信息 -->

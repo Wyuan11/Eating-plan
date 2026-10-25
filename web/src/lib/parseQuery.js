@@ -23,16 +23,18 @@ export function parseQuery(query = '') {
   const s = query || '';
   const out = { budget: null, calorie_limit: null, people: null, excluded: [], parsed: false };
 
-  // 预算：优先「预算 X」/「X 元」，其次裸数字 15~200
-  let m = s.match(/(?:预算|花|控制在|不超过|最多)\s*(\d{1,3})\s*(?:元|块|块钱)?/);
-  if (!m) m = s.match(/(\d{1,3})\s*(?:元|块|块钱)\b/);
+  // 预算：优先「预算 X」/「预算：X」/「X 元」，其次裸数字 15~200
+  // 注意 (\d{1,3})(?!\d)：防止「不超过 1500 大卡」被截断成预算 150
+  let m = s.match(/(?:预算|花|控制在|不超过|最多)\s*[：:]?\s*(\d{1,3})(?!\d)\s*(?:元|块|块钱)?/);
+  if (!m) m = s.match(/(\d{1,3})(?!\d)\s*(?:元|块|块钱)/);
   if (m) {
     const n = Number(m[1]);
     if (n > 0) { out.budget = n; out.parsed = true; }
   }
 
-  // 人数：明确「X 人」，或「我/我们 + 数量」
-  m = s.match(/([一二两三四五六七八九\d]+)\s*人/);
+  // 人数：明确「X 人」/「人数 X」/「三个人」，或「两个女生/三位男生」
+  m = s.match(/(?:人数\s*[：:]?\s*)?([一二两三四五六七八九\d]+)\s*(?:个|位)?\s*人/);
+  if (!m) m = s.match(/([一二两三四五六七八九\d]+)\s*(?:个|位)\s*(?:女生|男生|女孩|男孩|小姐姐|小哥哥)/);
   if (m) {
     out.people = CN_NUM[m[1]] ?? Number(m[1]) ?? null;
     if (out.people) out.parsed = true;
@@ -40,9 +42,19 @@ export function parseQuery(query = '') {
     out.people = 1; out.parsed = true;
   }
 
-  // 热量上限：减脂类词触发默认值
-  for (const { re, limit } of CALORIE_HINTS) {
-    if (re.test(s)) { out.calorie_limit = limit; out.parsed = true; break; }
+  // 热量上限：显式写法优先（「热量上限：2000」「不超过 1200 大卡」「热量 1000 kcal」）
+  m = s.match(/(?:热量上限|热量|卡路里)\s*[：:]?\s*(?:不超过|控制在|低于|最多)?\s*(\d{3,5})\s*(?:大卡|千卡|kcal)?/i)
+    || s.match(/(\d{3,5})\s*(?:大卡|千卡|kcal)/i);
+  if (m) {
+    out.calorie_limit = Number(m[1]);
+    out.parsed = true;
+  }
+
+  // 热量上限：减脂类词触发默认值（仅作演示预填，不做推荐）
+  if (out.calorie_limit == null) {
+    for (const { re, limit } of CALORIE_HINTS) {
+      if (re.test(s)) { out.calorie_limit = limit; out.parsed = true; break; }
+    }
   }
 
   // 忌口：不吃 X / 忌口 X / 别放 X
