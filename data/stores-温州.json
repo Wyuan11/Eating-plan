@@ -1,0 +1,46 @@
+{
+  "success": true,
+  "items": [
+    {
+      "code": "3330439",
+      "name": "麦当劳温州火车南站到达层餐厅",
+      "address": "温州南站1层",
+      "beType": 1,
+      "distance": "86m"
+    },
+    {
+      "code": "3330198",
+      "name": "麦当劳温州大象城餐厅",
+      "address": "潘桥街道宁波路2889号大象城商贸中心",
+      "beType": 1,
+      "distance": "683m"
+    },
+    {
+      "code": "3330138",
+      "name": "麦当劳温州大西洋银泰城餐厅",
+      "address": "娄桥街道瓯海大道1299号",
+      "beType": 1,
+      "distance": "1.8km"
+    },
+    {
+      "code": "3330385",
+      "name": "麦当劳温州盛宏锦园餐厅",
+      "address": "娄桥街道平天路187号盛宏锦园3幢102室",
+      "beType": 1,
+      "distance": "3.0km"
+    },
+    {
+      "code": "3330556",
+      "name": "麦当劳温州亚运汽车公园餐厅",
+      "address": "娄桥街道瓯海大道997号",
+      "beType": 1,
+      "distance": "3.0km"
+    }
+  ],
+  "meta": {
+    "generatedAt": "2026-10-25T05:29:13.335Z",
+    "source": "mcd-mcp query-nearby-stores",
+    "city": "温州",
+    "keyword": "温州"
+  }
+}
