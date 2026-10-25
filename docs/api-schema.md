@@ -8,11 +8,11 @@
 > |---|---|---|
 > | `POST /api/plan`（第 3 节） | ✅ 已启用 | 已对齐 v1.2：一次返回 `plans` 1～3 个、`wants` 正向诉求（数量是硬约束）、objective 别名归一 |
 > | `GET /api/health`、`GET /api/menu`、`GET /api/stores` | ✅ 已启用 | |
-> | `POST /api/order`（第 4 节） | ❌ **未启用** | 参赛红线：不调 `create-order`、不真实支付。接口返回 **501**，前端不渲染下单面板 |
+> | `POST /api/order`（第 4 节） | ✅ 已启用 | **只到支付链接为止**：本地快照算期望价 → MCP 核价 → 变价 409 拦下 → `create-order` 只取 `orderId`/`payH5Url`，**不支付、不自动跳转**。未配 Token 时 503 + 可改用演示订单 |
 > | 优惠券（第 十 节 v1.4） | ❌ **未启用** | 券模块未迁移。调用方不传 `coupons` 时，求解器行为与无券完全一致，响应 `coupons: null`、`coupon_saved: 0` |
 >
-> 因此当前实现下：`coupons` 恒为 `null`、`plan.coupon_saved` 恒为 `0`，下单相关字段不会出现。
-> 日后若要启用，需同步迁移 `server/order.js` / `server/coupons.js` / `server/token.js` 及对应前端面板。
+> 因此当前实现下：`coupons` 恒为 `null`、`plan.coupon_saved` 恒为 `0`。
+> 日后若要启用券，需同步迁移 `server/coupons.js` / `server/token.js` 的券分支及对应前端面板。
 
 > ⚡ **v1.2 变更（2026-10-24）：一次返回 1～3 个方案**
 >
@@ -183,10 +183,13 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
 {
   "storeCode": "1450713",
   "constraints": {
-    "budget": 60,           // 必填，元
+    "budget": 60,           // 必填，元；显式传 null = 不设预算上限（方案只受热量/忌口/人数约束）
     "calorie_limit": 1200,  // 可选，大卡；不填则不约束热量
     "people": 2,            // 可选，默认 1
-    "excluded": ["辣"]      // 可选，忌口关键词
+    "excluded": ["辣"],     // 可选，忌口关键词
+    "wants": [              // 可选，正向诉求；数量是硬约束（「想吃两个麦香鸡」≠ 一个）
+      { "keyword": "麦香鸡", "qty": 2 }   // qty 为 1~12 的整数，超范围返回 400
+    ]
   },
   // 券（可选，v1.4）。两种写法二选一：
   //   a) coupons: 显式传入（通常来自 GET /api/coupons，避免重复拉 MCP）
@@ -202,6 +205,24 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
 > `coupons[]` 走白名单校验（title/priceAfterFen/channels/validFrom/validTo/weekdays/dailyWindow），
 > 非法入参返回 `400 BAD_REQUEST`。`priceAfterFen` 单位**分**，1~100000。
 
+#### `constraints.budget = null`：不设预算上限
+
+用户说「不设预算 / 不限预算 / 随便花」时传 `null`，语义是**不约束总价**，与「没传」是两回事：
+
+| 传值 | 后端行为 |
+|---|---|
+| `60`（正数） | 正常：总价 ≤ 预算 |
+| `null` | 跳过预算筛选；方案只受热量 / 忌口 / 人数 / 正向诉求约束 |
+| 不传 / `0` / 非数字 | `400 BAD_REQUEST` |
+
+不设预算时：
+- `plan.budget_usage` 为 `"—"`（无预算基数，占用率不可计算，不编造百分比）；
+- 无解提示中不会出现「预算提高到 X 元」「保留当前预算」这类措辞；
+- 前端预算进度条显示「未设上限」，且不因总价大于 0 而判为超标。
+
+> 前端 `parseQuery` 识别「不设预算 / 不限预算 / 不设限 / 不差钱」等说法并置 `budget_unlimited: true`；
+> 表单侧对应「预算」开关（关闭即传 `null`）。显式数字热量写法（「热量 1200cal」「控制在 1500 大卡」）同样会被解析为 `calorie_limit`。
+
 ### 成功响应 `200`
 
 ```jsonc
@@ -216,7 +237,7 @@ export async function requestPlan(req: PlanRequest): Promise<PlanResponse> {
     "constraints": { "budget": 60, "calorie_limit": 1200, "people": 2, "excluded": ["辣"] },
     "intent": "两个人午餐60元1200大卡不要辣"
   },
-  "constraints": { "budget": 60, "calorie_limit": 1200, "people": 2, "excluded": ["辣"] },  // 与 request.constraints 同源
+  // ⚠️ 约束只在 request.constraints 下，响应顶层没有 constraints 字段（v1.2 原文档此处有误，以实现为准）
   "message": "推荐完成",
   "plan": {
     "total_price": 56.9,

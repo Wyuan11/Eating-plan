@@ -33,11 +33,14 @@ function inferStatus(raw) {
 function normalizeConstraints(raw) {
   const c = raw.request?.constraints || raw.constraints || {};
   return {
+    // budget 允许 null：用户明确「不设预算」。与「没给」同形但不替用户编造默认值
     budget: c.budget == null ? null : Number(c.budget),
     // 关键：没给热量上限就是 null，绝不在这里替用户编造一个值
     calorie_limit: c.calorie_limit == null ? null : Number(c.calorie_limit),
     people: Number(c.people) || 1,
     excluded: Array.isArray(c.excluded) ? c.excluded : [],
+    // 正向诉求透传（展示「想吃 X×N」与披露用）
+    wants: Array.isArray(c.wants) ? c.wants : [],
   };
 }
 

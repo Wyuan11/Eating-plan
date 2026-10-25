@@ -101,18 +101,22 @@ function signature(s) { return s.list.map(i => `${i.code}x${i.quantity}`).join('
 /** 预算吃满：在约束内尽量用足预算，同时兼顾多样性与蛋白占比，避免纯粹堆价格 */
 function valueScore(s, c) {
   const p = s.plan;
-  const budgetFit = s.priceFen / toFen(c.budget); // 已过滤超预算组合，恒 <= 1
   const variety = Math.min(1, new Set(s.list.map(i => i.category)).size / 3);
   const protein = p.total_calorie ? Math.min(1, s.nutrition.protein * 4 / p.total_calorie / 0.22) : 0;
+  // 不设预算时「预算吃满」没有锚点：退化为多样性 + 蛋白占比，不假装在优化预算利用率
+  if (c.budget == null) return variety * 0.6 + protein * 0.4;
+  const budgetFit = s.priceFen / toFen(c.budget); // 已过滤超预算组合，恒 <= 1
   return Math.min(1, budgetFit) * 0.55 + variety * 0.25 + protein * 0.2;
 }
 function balancedScore(s, c) {
   const p = s.plan;
-  const budgetFit = s.priceFen / toFen(c.budget);
   const calFit = c.calorie_limit != null ? 1 - Math.abs(p.total_calorie - c.calorie_limit * 0.8) / c.calorie_limit : 1 - Math.min(1, p.total_calorie / (1250 * c.people));
   const variety = Math.min(1, new Set(s.list.map(i => i.category)).size / 3);
   const protein = p.total_calorie ? Math.min(1, s.nutrition.protein * 4 / p.total_calorie / 0.22) : 0;
   const savings = s.originalFen ? Math.max(0, Math.min(1, (s.originalFen - s.priceFen) / (s.originalFen * 0.2))) : 0;
+  // 不设预算时把预算权重摊给热量贴合与多样性
+  if (c.budget == null) return calFit * 0.45 + variety * 0.3 + protein * 0.15 + savings * 0.1;
+  const budgetFit = s.priceFen / toFen(c.budget);
   return budgetFit * 0.3 + calFit * 0.3 + variety * 0.2 + protein * 0.1 + savings * 0.1;
 }
 function solve(menuItems, c = {}, options = {}) {
@@ -122,8 +126,12 @@ function solve(menuItems, c = {}, options = {}) {
   const fail = (reason, conflict, hint) => ({ success: false, message: '约束过严，无法生成可行方案', reason, conflict, hint, constraints, source_note: '基于输入菜单快照及其标注的官方营养数据；未实时核价', meta });
   try {
     if (!Array.isArray(menuItems)) return error('BAD_REQUEST', 'menuItems 必须为数组');
-    if (!numeric(constraints.budget) || constraints.budget <= 0) return error('BAD_REQUEST', 'budget 必须大于 0');
-    const budgetFen = toFen(constraints.budget);
+    // budget 允许为 null：用户明确「不设预算」时不设价格上限，只受热量/忌口/人数约束。
+    // 与「调用方漏传」严格区分：undefined 报错，显式 null 才是不设限——不替用户编造预算。
+    if (constraints.budget === undefined) return error('BAD_REQUEST', 'budget 缺失：给一个大于 0 的数字，或显式传 null 表示不设预算上限');
+    if (constraints.budget !== null && (!numeric(constraints.budget) || constraints.budget <= 0)) return error('BAD_REQUEST', 'budget 必须大于 0，或为 null 表示不设预算上限');
+    const budgetFen = constraints.budget === null ? null : toFen(constraints.budget);
+    const withinBudget = (fen) => budgetFen === null || fen <= budgetFen;
     if (!Number.isInteger(constraints.people) || constraints.people < 1 || constraints.people > 6) return error('BAD_REQUEST', 'people 必须为 1～6 的整数');
     if (constraints.calorie_limit !== null && (!numeric(constraints.calorie_limit) || constraints.calorie_limit <= 0)) return error('BAD_REQUEST', 'calorie_limit 必须为正数或 null');
     if (!Array.isArray(constraints.excluded) || constraints.excluded.some(k => typeof k !== 'string' || !k.trim())) return error('BAD_REQUEST', 'excluded 必须为非空字符串数组');
@@ -210,6 +218,12 @@ function solve(menuItems, c = {}, options = {}) {
       }
     }
     const capOf = cat => constraints.people + (extraByCat[cat] || 0);
+
+    // 主食份数下限：主食类诉求的数量不受 people 限制。
+    // 「一个人想吃两个麦香鸡」必须给得出来——否则诉求数量硬约束会在 people 较小时静默变成无解。
+    const mainWantQty = wantMatches.reduce(
+      (n, w) => n + (w.inPool.length && w.inPool.every(i => i.category === '主食') ? w.qty : 0), 0);
+    const mainCount = Math.max(constraints.people, mainWantQty);
     const withinCategoryCap = s => CAPPED_CATEGORIES.every(cat =>
       s.list.filter(i => i.category === cat).reduce((n, i) => n + i.quantity, 0) <= capOf(cat)
     );
@@ -267,18 +281,18 @@ function solve(menuItems, c = {}, options = {}) {
     }
     const sideSets = [[]];
     for (let k = 1; k <= 3; k++) for (const ss of combinations(sides, k, tick)) sideSets.push(ss);
-    for (const ms of combinations(mains, constraints.people, tick)) {
+    for (const ms of combinations(mains, mainCount, tick)) {
       const base = summarize(ms, constraints);
       minPrice = Math.min(minPrice, base.priceFen);
       minCal = Math.min(minCal, base.plan.total_calorie);
       const calOK = constraints.calorie_limit === null || base.plan.total_calorie <= constraints.calorie_limit;
       if (calOK) budgetNeeded = Math.min(budgetNeeded, base.priceFen);
-      if (base.priceFen <= budgetFen) calorieNeeded = Math.min(calorieNeeded, base.plan.total_calorie);
-      if (base.priceFen > budgetFen || !calOK) continue;
+      if (withinBudget(base.priceFen)) calorieNeeded = Math.min(calorieNeeded, base.plan.total_calorie);
+      if (!withinBudget(base.priceFen) || !calOK) continue;
       for (const ss of sideSets) {
         tick();
         const s = ss.length ? summarize([...ms, ...ss], constraints) : base;
-        if (s.priceFen > budgetFen) continue;
+        if (!withinBudget(s.priceFen)) continue;
         if (constraints.calorie_limit !== null && s.plan.total_calorie > constraints.calorie_limit) continue;
         if (!wantsOK(s)) continue; // 正向诉求数量不满足的组合直接淘汰
         if (!withinCategoryCap(s)) continue; // 一人两杯饮品/甜品不合理
@@ -287,11 +301,28 @@ function solve(menuItems, c = {}, options = {}) {
     }
     if (!best) {
       const hints = [];
-      if (Number.isFinite(budgetNeeded) && budgetNeeded > budgetFen) hints.push(`保留当前热量上限，预算提高到 ${budgetNeeded / 100} 元即可组成主食方案`);
-      if (Number.isFinite(calorieNeeded) && constraints.calorie_limit !== null && calorieNeeded > constraints.calorie_limit) hints.push(`保留当前预算，热量上限提高到 ${calorieNeeded} kcal 即可组成主食方案`);
-      if (!hints.length) hints.push('单独放宽预算或热量都不足以满足约束，请同时调整两项或减少人数');
-      if (wantMatches.length) hints.push(`正向诉求（${wantMatches.map(w => `${w.keyword}×${w.qty}`).join('、')}）也在参与筛选：数量改小一点，或放宽预算/热量后再试`);
-      const conflict = minPrice > budgetFen && constraints.calorie_limit !== null && minCal > constraints.calorie_limit ? '预算 vs 热量 vs 人数' : minPrice > budgetFen ? '预算 vs 人数' : constraints.calorie_limit !== null && minCal > constraints.calorie_limit ? '热量 vs 人数' : '预算 vs 热量';
+      // 不设预算时 budgetFen 为 null：「minPrice > budgetFen」恒真（null 按 0 比较），
+      // 不能据此误判成「预算 vs 人数」。先算两个独立的越界事实再组装文案。
+      const overBudget = budgetFen !== null && minPrice > budgetFen;
+      const overCal = constraints.calorie_limit !== null && minCal > constraints.calorie_limit;
+      // 「预算提高到 X 元」的语义是：保留当前热量上限时，能组成主食方案的最低预算。
+      // 它取决于 budgetNeeded（满足热量后的最低价），与 minPrice 是否超预算无关，
+      // 因此门槛只需「设了预算且 budgetNeeded 超预算」；不设预算时整条不输出。
+      if (budgetFen !== null && Number.isFinite(budgetNeeded) && budgetNeeded > budgetFen) hints.push(`保留当前热量上限，预算提高到 ${budgetNeeded / 100} 元即可组成主食方案`);
+      if (Number.isFinite(calorieNeeded) && constraints.calorie_limit !== null && calorieNeeded > constraints.calorie_limit) {
+        // 不设预算时不能写「保留当前预算」——那会暗示预算在起作用
+        hints.push(budgetFen === null
+          ? `热量上限提高到 ${calorieNeeded} kcal 即可组成主食方案（当前未设预算上限）`
+          : `保留当前预算，热量上限提高到 ${calorieNeeded} kcal 即可组成主食方案`);
+      }
+      if (!hints.length) hints.push(budgetFen === null
+        ? '未设预算上限仍无解：请放宽热量上限、减少忌口，或减少人数'
+        : '单独放宽预算或热量都不足以满足约束，请同时调整两项或减少人数');
+      if (wantMatches.length) hints.push(`正向诉求（${wantMatches.map(w => `${w.keyword}×${w.qty}`).join('、')}）也在参与筛选：数量改小一点，或${budgetFen === null ? '放宽热量后再试' : '放宽预算/热量后再试'}`);
+      const conflict = overBudget && overCal ? '预算 vs 热量 vs 人数'
+        : overBudget ? '预算 vs 人数'
+        : overCal ? '热量 vs 人数'
+        : (budgetFen === null ? '热量/忌口/诉求 vs 人数' : '预算 vs 热量');
       return fail(`在当前可信单品池内，${constraints.people} 份主食的最低价格为 ${minPrice / 100} 元，最低热量为 ${minCal} kcal（两项下界可能来自不同组合）；当前约束下没有可行组合`, conflict, hints.join('；'));
     }
     // v1.2: objective 决定「哪个策略的方案排第一」，其余策略按 PLAN_ORDER 补足，最多 3 个。
@@ -304,7 +335,11 @@ function solve(menuItems, c = {}, options = {}) {
       const dPrice = round((top.plan.total_price - s.plan.total_price));
       const dCal = top.plan.total_calorie - s.plan.total_calorie;
       if (key === 'cheapest') return dPrice > 0.009 ? `比主方案省 ¥${dPrice.toFixed(1)}` : '已是当前约束下最低总价';
-      if (key === 'max_value') return `预算用到 ${s.plan.budget_usage}，共 ${s.list.reduce((n, i) => n + i.quantity, 0)} 件`;
+      if (key === 'max_value') {
+        const n = s.list.reduce((acc, i) => acc + i.quantity, 0);
+        // 不设预算时没有「预算用到 %」可讲，如实说件数
+        return constraints.budget == null ? `不设预算上限，共 ${n} 件` : `预算用到 ${s.plan.budget_usage}，共 ${n} 件`;
+      }
       if (key === 'lowest_calorie') return dCal > 0 ? `比主方案少 ${dCal} kcal` : `总热量 ${s.plan.total_calorie} kcal，当前最低`;
       return '预算 / 热量 / 营养 / 多样性 综合最优';
     };

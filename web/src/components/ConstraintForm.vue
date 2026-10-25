@@ -18,6 +18,9 @@ const query = ref('')
 const wants = ref([])
 const form = reactive({
   budget: 60,
+  // 不设预算开关：用户说「不设预算/不限预算」时关掉，求解只受热量/忌口/人数约束。
+  // 与「没提预算」不同——没提时保持默认 60，显式说「不设」才关掉。
+  useBudget: true,
   people: 2,
   // 红线：用户没提热量就不设上限。此前默认 true + 1200，会导致
   // "两个人预算60" 这种没提热量的请求被强加一个 1200 大卡硬约束，
@@ -147,7 +150,9 @@ watch(query, (q) => {
   if (!q || !q.trim()) { wants.value = []; return }
   const p = parseQuery(q)
   wants.value = p?.wants || []
-  if (p.budget != null) form.budget = p.budget
+  // 「不设预算」→ 关掉预算开关；抽到具体预算数字 → 重新打开并回填
+  if (p.budget_unlimited) form.useBudget = false
+  if (p.budget != null) { form.budget = p.budget; form.useBudget = true }
   if (p.people != null) form.people = p.people
   if (p.calorie_limit != null) { form.useCalorie = true; form.calorie_limit = p.calorie_limit }
   if (p.excluded.length) form.excluded = [...new Set([...form.excluded, ...p.excluded])]
@@ -155,7 +160,8 @@ watch(query, (q) => {
 
 function buildConstraints() {
   return {
-    budget: Number(form.budget) || 60,
+    // 关掉预算开关 = 用户明确不设预算上限（null），不是"忘了填"
+    budget: form.useBudget ? Number(form.budget) || 60 : null,
     people: Number(form.people) || 1,
     calorie_limit: form.useCalorie ? Number(form.calorie_limit) || null : null,
     excluded: [...form.excluded],
@@ -188,7 +194,8 @@ function submit() {
         placeholder="例如：两个女生，预算 60，在减脂，不吃辣，想低卡又划算"
       ></textarea>
       <p v-if="parsePreview && parsePreview.parsed" class="form__preview">
-        已识别：<template v-if="parsePreview.budget">预算 ¥{{ parsePreview.budget }} · </template
+        已识别：<template v-if="parsePreview.budget_unlimited">不设预算上限 · </template
+        ><template v-else-if="parsePreview.budget">预算 ¥{{ parsePreview.budget }} · </template
         ><template v-if="parsePreview.people">{{ parsePreview.people }} 人 · </template
         ><template v-if="parsePreview.calorie_limit">热量上限 {{ parsePreview.calorie_limit }} 大卡 · </template
         ><template v-if="parsePreview.excluded.length">忌口 {{ parsePreview.excluded.join('、') }}</template
@@ -205,11 +212,18 @@ function submit() {
 
     <!-- 结构化约束 -->
     <section class="form__block">
-      <label class="form__label" for="budget">预算（元）</label>
-      <div class="form__slider">
+      <div class="form__calorie">
+        <label class="form__label" for="budget">预算（元）</label>
+        <label class="switch" title="关闭 = 不设预算上限">
+          <input id="useBudget" v-model="form.useBudget" type="checkbox" />
+          <span class="switch__track"></span>
+        </label>
+      </div>
+      <div v-if="form.useBudget" class="form__slider">
         <input id="budget" v-model.number="form.budget" type="range" min="10" max="200" step="5" />
         <input v-model.number="form.budget" type="number" class="form__num" min="10" max="500" />
       </div>
+      <p v-else class="form__hint">不设预算上限：方案只受热量 / 忌口 / 人数约束</p>
     </section>
 
     <section class="form__block">

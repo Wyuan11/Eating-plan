@@ -116,6 +116,26 @@ const post = (base, route, payload) => call(base, route, {
   assert.equal(badWant.status, 400);
   assert.equal(badWant.body.error.code, 'BAD_REQUEST');
 
+  // 7) 不设预算：budget 显式 null → 跳过预算筛选，budget_usage 为「—」而非编造百分比
+  const noBudget = await post(base, '/api/plan', {
+    ...baseBody,
+    constraints: { ...baseBody.constraints, budget: null, calorie_limit: 1200 },
+  });
+  assert.equal(noBudget.status, 200);
+  // 约束只在 request.constraints 下，顶层没有 constraints（契约文档已按实现修正）
+  assert.equal(noBudget.body.request.constraints.budget, null);
+  assert.equal(noBudget.body.plan.budget_usage, '—');
+  assert.ok(noBudget.body.plan.total_calorie <= 1200);
+  // 对照：压一个极低预算应无解，证明 null 确实放宽了预算而不是被当成 0
+  const tinyBudget = await post(base, '/api/plan', {
+    ...baseBody,
+    constraints: { ...baseBody.constraints, budget: 1, calorie_limit: 1200 },
+  });
+  assert.equal(tinyBudget.body.success, false);
+  // budget 不传 / 传 0 仍是 400，null 是唯一的「不设」信号
+  const zeroBudget = await post(base, '/api/plan', { ...baseBody, constraints: { ...baseBody.constraints, budget: 0 } });
+  assert.equal(zeroBudget.status, 400);
+
   // 三态之二：无解。必须带 conflict/hint，且仍是 HTTP 200（前端不能只看状态码）
   const noSolution = await post(base, '/api/plan', { storeCode: '1450713', constraints: { budget: 15, people: 3, excluded: [] } });
   assert.equal(noSolution.status, 200);
@@ -144,8 +164,15 @@ const post = (base, route, payload) => call(base, route, {
   const unknown = await call(base, '/api/nope');
   assert.equal(unknown.status, 404);
 
+  // 下单已启用（到支付链接为止）：空购物车是参数错误 400，不再是 501 未实现
   const order = await post(base, '/api/order', { storeCode: '1450713', items: [] });
-  assert.equal(order.status, 501);
+  assert.equal(order.status, 400);
+  assert.equal(order.body.error.code, 'BAD_REQUEST');
+  // 演示订单：不碰 MCP、不调 create-order，只返回演示支付链接
+  const mockOrder = await post(base, '/api/order', { storeCode: '1450713', mock: true, items: [{ code: '1406', quantity: 1 }] });
+  assert.equal(mockOrder.status, 200);
+  assert.equal(mockOrder.body.status ?? 'success', 'success');
+  assert.ok(mockOrder.body.order?.payUrl || mockOrder.body.order?.payH5Url, '演示订单应给出支付链接');
 
   const stores = await call(base, '/api/stores');
   assert.equal(stores.status, 200);
@@ -163,6 +190,7 @@ const post = (base, route, payload) => call(base, route, {
       aliasLowestPrice: alias.body.objective,
       maxValue: maxValue.body.objective,
       noDrinkCategories: [...new Set(noDrink.body.items.map((i) => i.category))],
+      noBudget: { usage: noBudget.body.plan.budget_usage, price: noBudget.body.plan.total_price },
     },
     noSolution: { conflict: noSolution.body.conflict, hint: noSolution.body.hint },
   }, null, 2));

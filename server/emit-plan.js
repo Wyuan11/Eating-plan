@@ -180,6 +180,9 @@ function main() {
     return i >= 0 ? argv[i + 1] : d;
   };
   const calorieRaw = arg('calorie', null);
+  // --budget none / null → 不设预算上限（用户显式声明，区别于不传时的默认 60）
+  const budgetRaw = arg('budget', '60');
+  const budget = budgetRaw === 'none' || budgetRaw === 'null' ? null : Number(budgetRaw);
   const excluded = arg('exclude', '') ? arg('exclude').split(/[,，\s]+/).filter(Boolean) : [];
   // --want "冰淇淋x1,麦香鸡x2"：正向诉求带精确数量，数量是硬约束
   const wants = arg('want', '') ? arg('want').split(/[,，]+/).filter(Boolean).map(s => {
@@ -201,7 +204,7 @@ function main() {
     objective: arg('objective', 'balanced'),
     notes,
     constraints: {
-      budget: Number(arg('budget', 60)),
+      budget,
       // 关键：没传 --calorie 就是 null，绝不替用户编造热量上限
       calorie_limit: calorieRaw == null || calorieRaw === '' ? null : Number(calorieRaw),
       people: Number(arg('people', 1)),

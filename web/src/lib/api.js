@@ -12,6 +12,7 @@ import { normalizePlan } from './normalize.js';
 
 const STORES_TIMEOUT = 4000;
 const PLAN_TIMEOUT = 30000; // solver 组合枚举可能稍慢
+const ORDER_TIMEOUT = 30000; // 核价 + 下单两步走真实 MCP
 
 async function fetchWithTimeout(url, options = {}, ms) {
   const ctrl = new AbortController();
@@ -99,4 +100,28 @@ export async function submitPlan(payload) {
           : '未连接后端 /api/plan，已切换内置演示数据',
     };
   }
+}
+
+/**
+ * POST /api/order —— 下单（到支付链接为止）。
+ *
+ * 与 submitPlan 不同：下单**没有 mock 回退**，调用方必须拿到真实状态码处理错误码
+ * （PRICE_CHANGED / MCP_UNAVAILABLE / NO_TAKEWAY …），所以这里不做 catch 兜底，
+ * 网络层异常直接抛给 OrderPanel 显示「未连接后端」。
+ *
+ * @returns {Promise<{status:number, body:Object}>}
+ */
+export async function createOrder(payload) {
+  const res = await fetchWithTimeout(
+    '/api/order',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    },
+    ORDER_TIMEOUT
+  );
+  const body = await res.json().catch(() => null);
+  if (!body) throw new Error(`HTTP ${res.status}`);
+  return { status: res.status, body };
 }

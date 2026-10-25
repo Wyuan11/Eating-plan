@@ -27,14 +27,25 @@ export function parseQuery(query = '') {
   const s = query || '';
   const out = { budget: null, calorie_limit: null, people: null, excluded: [], parsed: false };
 
-  // 预算：优先「预算 X」/「X 元」，其次裸数字 15~200
-  let m = s.match(/(?:预算|花|控制在|不超过|最多)\s*(\d{1,3})\s*(?:元|块|块钱)?/);
-  if (!m) m = s.match(/(\d{1,3})\s*(?:元|块|块钱)\b/);
+  // 预算：优先「预算 X」/「X 元」，其次裸数字 15~200。
+  // 数字后用 (?!\d) 防部分匹配：「控制在1200大卡」里的 1200 不能被截成预算 120；
+  // 中文单位后不能跟 \b（CJK 字符不构成边界），「80块钱」会匹配不到。
+  let m = s.match(/(?:预算|花|控制在|不超过|最多)\s*(\d{1,3})(?!\d)\s*(?:元|块|块钱)?/);
+  if (!m) m = s.match(/(\d{1,3})(?!\d)\s*(?:元|块|块钱)/);
   // 口语里也会把数字放前面：「60预算」「40 块预算」
-  if (!m) m = s.match(/(\d{1,3})\s*(?:元|块|块钱)?\s*预算/);
+  if (!m) m = s.match(/(\d{1,3})(?!\d)\s*(?:元|块|块钱)?\s*预算/);
   if (m) {
     const n = Number(m[1]);
     if (n > 0) { out.budget = n; out.parsed = true; }
+  }
+
+  // 「不设预算 / 不限预算」→ 明确的无预算上限，与「没提预算」是两回事：
+  // 没提时表单按默认 60 提交；显式声明不设时 budget=null 且 unlimited=true，
+  // 表单关掉预算开关、后端不设上限。显式声明优先于前面抽到的数字。
+  if (/(不设预算|不限预算|预算不限|无预算上限|不限制预算|不设限|随便花|不差钱)/.test(s)) {
+    out.budget = null;
+    out.budget_unlimited = true;
+    out.parsed = true;
   }
 
   // 人数：明确「X 个 人/女生/男生…」。注意口语里数字和人称之间隔着「个」，
@@ -45,6 +56,19 @@ export function parseQuery(query = '') {
     if (out.people) out.parsed = true;
   } else if (s.includes('一个人') || s.includes('我一个人') || s.includes('随便吃')) {
     out.people = 1; out.parsed = true;
+  }
+
+  // 显式热量数字（优先级高于减脂类词的默认值）：
+  // 「热量1200cal」「1200大卡」「热量控制在1200」。
+  // 必须靠「热量/卡路里」前缀或「大卡/千卡/kcal」单位区分预算数字——
+  // 「预算 1200 元」绝不能被当成热量上限。
+  m = s.match(/(?:热量|卡路里)\s*(?:控制在|上限|不超过|在|为|是)?\s*(\d{3,4})\s*(?:大卡|千卡|kcal|cal|卡)?/i)
+    // 注意：中文单位后不能跟 \b——「大卡」的「卡」与后续标点都是非 word 字符，
+    // \b 断言永远不成立，「1500大卡」会匹配不到。中文场景直接省略边界。
+    || s.match(/(\d{3,4})\s*(?:大卡|千卡|kcal)/i);
+  if (m) {
+    const n = Number(m[1]);
+    if (n >= 100 && n <= 5000) { out.calorie_limit = n; out.parsed = true; }
   }
 
   // 热量上限：减脂类词触发默认值

@@ -8,6 +8,7 @@ import VerifyBadge from './VerifyBadge.vue'
 import SavingsStrip from './SavingsStrip.vue'
 import PlanTabs from './PlanTabs.vue'
 import MenuPicker from './MenuPicker.vue'
+import OrderPanel from './OrderPanel.vue'
 
 const props = defineProps({
   result: { type: Object, required: true },
@@ -127,10 +128,11 @@ const check = computed(() => {
 
 const budgetColor = computed(() => {
   if (!check.value) return 'normal'
-  const limit = constraints.value.budget || 0
+  // 不设预算（budget 为 null）：预算条恒为 normal，不显示超标红——没有上限可超
+  const limit = constraints.value.budget
+  if (limit == null || limit <= 0) return 'normal'
   if (check.value.total_price > limit) return 'over'
-  const usage = limit ? check.value.total_price / limit : 0
-  return usage >= 0.9 ? 'warn' : 'normal'
+  return check.value.total_price / limit >= 0.9 ? 'warn' : 'normal'
 })
 const calorieColor = computed(() => {
   if (!check.value || constraints.value.calorie_limit == null) return 'normal'
@@ -230,8 +232,14 @@ function fmtTime(iso) {
       </section>
     </div>
 
-    <!-- 下单面板已按决策移除：参赛红线不调 create-order、不真实支付。
-         若日后要恢复，需同时迁移 server/order.js、OrderPanel.vue 与 /api/order。 -->
+    <!-- 下单：按当前方案（含微调）生成支付链接，只渲染二维码不自动支付。
+         红线：只到 payH5Url 为止，不自动跳转、不自动支付。 -->
+    <OrderPanel
+      :items="check.items"
+      :store-code="storeCode"
+      :disabled="check.overBudget || check.overCalorie"
+      :disabled-reason="check.overBudget || check.overCalorie ? '方案超出约束，已拦截下单' : null"
+    />
 
     <!-- 建议（主方案的解说；手动微调后口径已变，隐藏） -->
     <div v-if="isMain && !customized && result.suggestion" class="result__suggestion">

@@ -28,7 +28,7 @@
   "hint": null,
   "error": {
     "code": "BAD_REQUEST",
-    "detail": "budget 必须大于 0",
+    "detail": "budget 必须大于 0，或为 null 表示不设预算上限",
     "retryable": false
   },
   "source_note": null,

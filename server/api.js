@@ -29,6 +29,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { solve, OBJECTIVES, OBJECTIVE_ALIASES } = require('./solver');
 const { buildPayload } = require('./emit-plan');
+const { submitOrder } = require('./order');
 
 const PORT = Number(process.env.PORT || 8787);
 const DEFAULT_STORE = process.env.DEFAULT_STORE || '1450713';
@@ -174,7 +175,8 @@ function validate(body) {
   const rawObjective = body?.objective ?? c.objective ?? 'balanced';
   const objective = OBJECTIVE_ALIASES[rawObjective] || rawObjective;
   if (!OBJECTIVES.includes(objective)) return { error: `objective 必须是 ${OBJECTIVES.join(' / ')}` };
-  if (typeof c.budget !== 'number' || !Number.isFinite(c.budget) || c.budget <= 0) return { error: 'constraints.budget 必须为大于 0 的数字' };
+  // budget 允许显式 null（不设预算上限）；未传（undefined）仍是参数错误
+  if (c.budget !== null && (typeof c.budget !== 'number' || !Number.isFinite(c.budget) || c.budget <= 0)) return { error: 'constraints.budget 必须为大于 0 的数字，或 null 表示不设预算上限' };
   if (!Number.isInteger(c.people) || c.people < 1 || c.people > 6) return { error: 'constraints.people 必须为 1～6 的整数' };
   if (c.calorie_limit !== null && (typeof c.calorie_limit !== 'number' || !Number.isFinite(c.calorie_limit) || c.calorie_limit <= 0)) return { error: 'constraints.calorie_limit 必须为正数或 null' };
   if (!Array.isArray(c.excluded) || c.excluded.some((k) => typeof k !== 'string')) return { error: 'constraints.excluded 必须为字符串数组' };
@@ -379,8 +381,83 @@ function handleHealth(req, res) {
   });
 }
 
-function handleOrder(req, res) {
-  return send(res, 501, fail('NOT_FOUND', '/api/order 尚未实现：Day2 先 calculate-price 重新核价，用户确认后再 create-order', false, baseMeta(DEFAULT_STORE)));
+/**
+ * POST /api/order —— 下单链路（到支付链接为止，红线不破）。
+ *
+ * 流程：本地快照算期望总价 → MCP calculate-price 核价 → 变价则 409 PRICE_CHANGED 拦下
+ *       → create-order 只拿 orderId / payH5Url，绝不调用支付、绝不自动跳转。
+ *
+ * 三档降级：
+ *   mock:true        → 走 web/mock/order.success.json，标注 source:mock（演示用）
+ *   未配 Token       → 503 MCP_UNAVAILABLE，绝不伪造订单号；前端可改用演示订单
+ *   MCP 异常         → 502/503 如实报错
+ */
+async function handleOrder(req, res) {
+  const body = await readJsonBody(req);
+  if (body.error) return send(res, 400, fail('BAD_REQUEST', body.error, false, baseMeta(DEFAULT_STORE)));
+
+  const storeCode = typeof body?.storeCode === 'string' && body.storeCode.trim() ? body.storeCode.trim() : DEFAULT_STORE;
+  const meta = baseMeta(storeCode, { traceId: `order-${crypto.randomUUID()}` });
+
+  if (body?.mock === true) {
+    try {
+      const mock = JSON.parse(fs.readFileSync(path.join(__dirname, '../web/mock/order.success.json'), 'utf8'));
+      return send(res, 200, {
+        ...mock,
+        meta: { ...meta, ...(mock.meta || {}), source: 'mock', note: 'mock 订单：未调用 MCP，不产生真实订单' },
+      });
+    } catch (e) {
+      return send(res, 500, fail('INTERNAL_ERROR', `mock 订单读取失败: ${e.message}`, false, meta));
+    }
+  }
+
+  const beType = Number(body?.beType ?? 1); // 1: 到店取餐
+  if (![1, 2, 5, 6].includes(beType)) return send(res, 400, fail('BAD_REQUEST', 'beType 必须是 1/2/5/6', false, meta));
+
+  // 用本地快照算一个期望总价，交给 MCP 核价比对；菜单缺失时不阻断，只放弃比对
+  let expectedFen = null;
+  const loaded = await ensureMenu(storeCode);
+  if (!loaded.error) {
+    const byCode = new Map(loaded.menu.items.map((i) => [String(i.code), i]));
+    let fen = 0, ok = true;
+    for (const it of Array.isArray(body?.items) ? body.items : []) {
+      const m = byCode.get(String(it?.code ?? it?.productCode ?? ''));
+      const qty = Number(it?.quantity ?? 1);
+      if (!m || !Number.isFinite(m.price)) { ok = false; break; }
+      fen += Math.round(m.price * 100) * qty;
+    }
+    if (ok && fen > 0) expectedFen = fen;
+  }
+
+  const r = await submitOrder({ storeCode, items: body?.items, beType, expectedFen });
+  if (!r.ok) {
+    const status = { BAD_REQUEST: 400, PRICE_CHANGED: 409, MCP_TOOL_ERROR: 502, NO_TAKEWAY: 502, MCP_UNAVAILABLE: 503 }[r.code] || 502;
+    return send(res, status, fail(r.code, r.detail, r.code === 'MCP_UNAVAILABLE', { ...meta, ...(r.meta || {}) }));
+  }
+
+  const yuan = (fen) => Math.round(fen) / 100;
+  return send(res, 200, {
+    success: true,
+    // 不编造支付截止时间：MCP 没给就说「以支付页为准」
+    message: '订单已创建，请在支付页提示的时间内完成支付（演示到此为止，不会自动付款）',
+    order: {
+      orderId: r.order.orderId,
+      total_price: yuan(r.order.totalFen || r.price.totalFen),
+      payH5Url: r.order.payH5Url,
+      expireAt: r.order.expireAt, // MCP 未返回 → null
+      storeName: r.order.storeName,
+      orderStatus: r.order.orderStatus,
+    },
+    price_check: {
+      expected_price: expectedFen === null ? null : yuan(expectedFen),
+      actual_price: yuan(r.price.totalFen),
+      product_price: yuan(r.price.productFen),
+      delivery_price: yuan(r.price.deliveryFen),
+      discount: yuan(r.price.discountFen),
+      matched: expectedFen === null ? null : expectedFen === r.price.totalFen,
+    },
+    meta: { ...meta, ...(r.meta || {}) },
+  });
 }
 
 // ---------------------------------------------------------------- 服务器
@@ -409,7 +486,10 @@ function requestHandler(req, res) {
   if (route === '/api/plan' && req.method === 'POST') {
     return handlePlan(req, res).then(() => log(res.statusCode), () => log(500));
   }
-  if (route === '/api/order') { log(501); return handleOrder(req, res); }
+  if (route === '/api/order' && req.method === 'POST') {
+    // 状态码由 handleOrder 决定（200/400/409/502/503），日志记真实码，不再硬编码
+    return handleOrder(req, res).then(() => log(res.statusCode), () => log(500));
+  }
 
   log(404);
   return send(res, 404, fail('NOT_FOUND', `未知路由 ${req.method} ${route}`, false, baseMeta(DEFAULT_STORE)));

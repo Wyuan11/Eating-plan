@@ -13,7 +13,8 @@ function verify(result) {
   assert.equal(cal, result.plan.total_calorie);
   assert.ok(result.items.every(i => i.calorie !== null && i.calorie_source === 'official'));
   assert.ok(result.items.filter(i => i.category === '主食').reduce((s, i) => s + i.quantity, 0) >= result.constraints.people);
-  assert.ok(result.plan.total_price <= result.constraints.budget);
+  // budget 可为 null（不设预算）：此时没有「不超预算」可断言
+  if (result.constraints.budget != null) assert.ok(result.plan.total_price <= result.constraints.budget);
   if (result.constraints.calorie_limit != null) assert.ok(result.plan.total_calorie <= result.constraints.calorie_limit);
 }
 const main = solve(menu.items, { storeCode: menu.store.code, storeName: menu.store.name, budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] }, { maxNodes: 200000 });
@@ -47,6 +48,34 @@ assert.equal(joint.success, false); assert.equal(joint.conflict, '预算 vs 热�
 assert.match(joint.hint, /30 元/); assert.match(joint.hint, /800 kcal/);
 verify(solve(jointMenu, { budget: 30, calorie_limit: 500 }));
 verify(solve(jointMenu, { budget: 20, calorie_limit: 800 }));
+// ── 不设预算（budget: null）：跳过预算筛选，但仍受热量 / 人数 / 忌口约束 ──
+const nb = solve(menu.items, { storeCode: menu.store.code, budget: null, calorie_limit: 1200, people: 2, excluded: [] }, { maxNodes: 200000 });
+verify(nb);
+assert.equal(nb.constraints.budget, null);
+assert.equal(nb.plan.budget_usage, '—');   // 无预算基数，占用率不可算且不得编造
+assert.ok(nb.plan.total_calorie <= 1200);
+// 对照：同样条件压一个极低预算应无解，证明 null 确实放宽了预算而非被当成 0
+assert.equal(solve(menu.items, { budget: 1, calorie_limit: 1200, people: 2, excluded: [] }, { maxNodes: 200000 }).success, false);
+// 不设预算仍无解时，提示不得暗示「预算」在起作用
+const nbNoSol = solve(menu.items, { budget: null, calorie_limit: 100, people: 2, excluded: [] }, { maxNodes: 200000 });
+assert.equal(nbNoSol.success, false);
+assert.equal(nbNoSol.conflict, '热量 vs 人数');
+assert.ok(!/预算提高到/.test(nbNoSol.hint), '不设预算时不应提示提高预算');
+assert.ok(!/保留当前预算/.test(nbNoSol.hint), '不设预算时不应写「保留当前预算」');
+// budget 传 undefined / 非数字仍是参数错误，null 才是唯一的「不设」信号
+assert.equal(solve(menu.items, { people: 1 }).error.code, 'BAD_REQUEST');
+assert.equal(solve(menu.items, { budget: 0, people: 1 }).error.code, 'BAD_REQUEST');
+
+// ── 主食类诉求数量不受 people 限制：「一个人想吃两个麦香鸡」必须给得出来 ──
+// 注意 maxNodes 用生产默认 200 万：20 万会因主食份数抬升后组合数变大而误报 INTERNAL_ERROR
+const wantMain = solve(menu.items, { storeCode: menu.store.code, budget: null, people: 1, excluded: [], wants: [{ keyword: '麦香鸡', qty: 2 }] }, { maxNodes: 2000000 });
+verify(wantMain);
+assert.equal(wantMain.items.filter(i => i.name.includes('麦香鸡')).reduce((n, i) => n + i.quantity, 0), 2, '主食诉求数量应是硬约束：方案里必须恰好 2 件麦香鸡');
+// 诉求数量高于人数时同样成立（枚举份数下限 = max(people, 主食诉求合计)）
+const wantMain3 = solve(menu.items, { storeCode: menu.store.code, budget: null, people: 2, excluded: [], wants: [{ keyword: '麦香鸡', qty: 3 }] }, { maxNodes: 2000000 });
+verify(wantMain3);
+assert.equal(wantMain3.items.filter(i => i.name.includes('麦香鸡')).reduce((n, i) => n + i.quantity, 0), 3);
+
 const shuffled = solve([...menu.items].reverse(), { budget: 60, calorie_limit: 1200, people: 2, excluded: ['辣'] }, { maxNodes: 200000 });
 assert.deepEqual(shuffled.items, main.items);
 assert.equal(main.objective, 'balanced');

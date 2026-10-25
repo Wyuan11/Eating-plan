@@ -13,18 +13,32 @@
  */
 
 const ENDPOINT = process.env.MCD_MCP_URL || 'https://mcp.mcd.cn';
-const TOKEN = process.env.MCD_MCP_TOKEN;
+
+/**
+ * Token 惰性读取。
+ * 坑：原来是模块加载时读一次 env，谁先 require 谁就决定成败——
+ * api.js 会经 order.js 过早加载本模块，之后即便补上 MCD_MCP_TOKEN 也拿不到。
+ * 改成每次调用时取，并在 env 缺失时回落到 ~/.workbuddy/mcp.json。
+ */
+let cachedToken = process.env.MCD_MCP_TOKEN || null;
+function getToken() {
+  if (cachedToken) return cachedToken;
+  try { require('./token').ensureToken(); } catch { /* 没有配置文件就按未配置处理 */ }
+  cachedToken = process.env.MCD_MCP_TOKEN || null;
+  return cachedToken;
+}
 
 let seq = 0;
 
 async function rpc(method, params) {
-  if (!TOKEN) throw new Error('缺少环境变量 MCD_MCP_TOKEN');
+  const token = getToken();
+  if (!token) throw new Error('缺少环境变量 MCD_MCP_TOKEN');
   const res = await fetch(ENDPOINT, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Accept: 'application/json, text/event-stream',
-      Authorization: `Bearer ${TOKEN}`,
+      Authorization: `Bearer ${token}`,
     },
     body: JSON.stringify({ jsonrpc: '2.0', id: ++seq, method, params }),
     signal: AbortSignal.timeout(15000),
